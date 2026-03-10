@@ -368,6 +368,23 @@ const ExportManager = (() => {
     return rows;
   }
 
+  function _forceTextCols(ws, colNames) {
+    if (!ws['!ref']) return;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const colMap = {};
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const h = ws[XLSX.utils.encode_cell({ r: 0, c: C })];
+      if (h && colNames.includes(h.v)) colMap[C] = true;
+    }
+    for (let R = range.s.r + 1; R <= range.e.r; R++) {
+      Object.keys(colMap).forEach(C => {
+        const addr = XLSX.utils.encode_cell({ r: R, c: +C });
+        if (!ws[addr]) return;
+        ws[addr] = { t: 's', v: String(ws[addr].v || ''), z: '@' };
+      });
+    }
+  }
+
   function _masterSheets(wb) {
     const m = DataManager.getMaster();
     const sports = (m.sports || []).map(s => ({
@@ -386,7 +403,9 @@ const ExportManager = (() => {
       id: c.id, name: c.name, color: c.color || '',
     }));
     const toSheet = arr => XLSX.utils.json_to_sheet(arr.length ? arr : [{}]);
-    XLSX.utils.book_append_sheet(wb, toSheet(sports), '競技');
+    const sportsSheet = toSheet(sports);
+    _forceTextCols(sportsSheet, ['startDate', 'endDate']);
+    XLSX.utils.book_append_sheet(wb, sportsSheet, '競技');
     XLSX.utils.book_append_sheet(wb, toSheet(hotels), 'ホテル');
     XLSX.utils.book_append_sheet(wb, toSheet(venues), '会場');
     XLSX.utils.book_append_sheet(wb, toSheet(cats), 'イベント種別');

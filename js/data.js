@@ -295,6 +295,14 @@ const DataManager = (() => {
   }
 
   // ── XLSX / CSV Import ──────────────────────────────────────────────────
+  function _excelDateToString(v) {
+    if (typeof v !== 'number') return String(v || '');
+    // Excelのシリアル日付をYYYY-MM-DD文字列に変換
+    // ExcelエポックはUNIXエポック(1970-01-01)より25569日前
+    const date = new Date((v - 25569) * 86400 * 1000);
+    return date.toISOString().slice(0, 10);
+  }
+
   function importMasterXLSX(workbook) {
     const readSheet = (name) => {
       const ws = workbook.Sheets[name];
@@ -307,8 +315,8 @@ const DataManager = (() => {
       name: r.name,
       shortName: r.shortName || '',
       color: r.color || '',
-      startDate: r.startDate || '',
-      endDate: r.endDate || '',
+      startDate: _excelDateToString(r.startDate),
+      endDate: _excelDateToString(r.endDate),
       hotelIds: r.hotelIds ? String(r.hotelIds).split(';').filter(Boolean) : [],
       venueIds: r.venueIds ? String(r.venueIds).split(';').filter(Boolean) : [],
       isSoccer: Number(r.isSoccer) === 1,
