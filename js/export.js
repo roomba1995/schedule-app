@@ -522,7 +522,7 @@ const ExportManager = (() => {
     XLSX.writeFile(wb, 'schedules.xlsx');
   }
 
-  // ── Schedule template (pre-populated with check-in / meals / check-out) ──
+  // ── Schedule template: existing events if available, placeholder otherwise ──
   function exportScheduleTemplate() {
     if (typeof XLSX === 'undefined') { alert('XLSXライブラリが必要です。'); return; }
     const wb   = XLSX.utils.book_new();
@@ -534,30 +534,40 @@ const ExportManager = (() => {
       const end   = sport.endDate   || dr.end;
       const dates = DataManager.getDatesInRange(start, end);
 
-      dates.forEach((date, i) => {
-        const isFirst = i === 0;
-        const isLast  = i === dates.length - 1;
+      // Count total existing events for this sport
+      const totalEvents = dates.reduce((n, d) => n + DataManager.getEvents(sport.id, d).length, 0);
 
-        if (isFirst) {
-          rows.push({ sportId: sport.id, sportName: sport.name, date,
+      if (totalEvents > 0) {
+        // Use existing data
+        for (const date of dates) {
+          for (const ev of DataManager.getEvents(sport.id, date)) {
+            rows.push({
+              sportId: sport.id, sportName: sport.name, date,
+              title: ev.title || '', startTime: ev.startTime || '',
+              endTime: ev.endTime || '', category: ev.category || '',
+              floor: ev.floor != null ? ev.floor : '',
+              location: ev.location || '', note: ev.note || '', color: ev.color || '',
+            });
+          }
+        }
+      } else {
+        // No data yet – generate placeholder rows
+        dates.forEach((date, i) => {
+          const isFirst = i === 0, isLast = i === dates.length - 1;
+          if (isFirst) rows.push({ sportId: sport.id, sportName: sport.name, date,
             title: 'チェックイン', startTime: '15:00', endTime: '16:00',
-            category: 'checkin', note: '', color: '' });
-        }
-
-        rows.push({ sportId: sport.id, sportName: sport.name, date,
-          title: '朝食', startTime: '07:00', endTime: '08:30',
-          category: 'meal', note: '', color: '' });
-
-        rows.push({ sportId: sport.id, sportName: sport.name, date,
-          title: '夕食', startTime: '18:00', endTime: '20:00',
-          category: 'meal', note: '', color: '' });
-
-        if (isLast) {
+            category: 'checkin', floor: '', location: '', note: '', color: '' });
           rows.push({ sportId: sport.id, sportName: sport.name, date,
+            title: '朝食', startTime: '07:00', endTime: '08:30',
+            category: 'meal', floor: '', location: '', note: '', color: '' });
+          rows.push({ sportId: sport.id, sportName: sport.name, date,
+            title: '夕食', startTime: '18:00', endTime: '20:00',
+            category: 'meal', floor: '', location: '', note: '', color: '' });
+          if (isLast) rows.push({ sportId: sport.id, sportName: sport.name, date,
             title: 'チェックアウト', startTime: '10:00', endTime: '11:00',
-            category: 'checkin', note: '', color: '' });
-        }
-      });
+            category: 'checkin', floor: '', location: '', note: '', color: '' });
+        });
+      }
     }
 
     const ws = XLSX.utils.json_to_sheet(rows.length ? rows.map(_toJaRow) : [_toJaRow({})]);
