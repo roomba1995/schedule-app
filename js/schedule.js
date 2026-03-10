@@ -176,13 +176,18 @@ const ScheduleGrid = (() => {
     const top    = minutesToTop(sMin);
     const height = durationToHeight(sMin, eMin);
     const safeTitle = (ev.title || '').replace(/"/g, '&quot;');
+    const safeNote  = (ev.note  || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const notePopup = ev.note
+      ? `<div class="event-note-popup"><div class="event-note-popup-title">${safeTitle}</div><div class="event-note-popup-body">${safeNote}</div></div>`
+      : '';
     return `
-      <div class="event-block"
+      <div class="event-block${ev.note ? ' has-note' : ''}"
            style="top:${top}px;height:${height}px;background:${color};"
            onclick="event.stopPropagation();ScheduleGrid.showEventModal('${ev.id}','${date}')"
            title="${safeTitle}">
         <div class="event-time">${ev.startTime}–${ev.endTime}</div>
-        <div class="event-title">${ev.title || ''}</div>
+        <div class="event-title">${ev.title || ''}${ev.note ? ' <span class="note-icon">💬</span>' : ''}</div>
+        ${notePopup}
       </div>`;
   }
 
@@ -243,8 +248,8 @@ const ScheduleGrid = (() => {
                 onclick="document.getElementById('ev-color').value=''">カテゴリ色を使用</button>
             </div>
             <div class="form-group">
-              <label>メモ</label>
-              <textarea id="ev-note" rows="2" placeholder="備考・詳細">${ev ? (ev.note||'') : ''}</textarea>
+              <label>詳細コメント <span style="font-size:11px;color:#7f8c8d;font-weight:normal">（印刷・Excel出力に反映、Web上はホバーで表示）</span></label>
+              <textarea id="ev-note" rows="3" placeholder="例：3階ファンクションルーム「葵」にて食事、食事後はエレベーターで客室へ戻る">${ev ? (ev.note||'') : ''}</textarea>
             </div>
           </div>
           <div class="modal-footer">

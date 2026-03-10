@@ -340,13 +340,14 @@ const App = (() => {
         </div>
       </div>`;
 
-    // Init schedule grids for each sport (only first is visible initially)
-    sports.forEach((s, i) => {
+    // Init only the first (active) tab's grid; others are initialized on tab switch
+    if (sports.length > 0) {
+      const s     = sports[0];
       const dr    = DataManager.getDateRange();
       const start = s.startDate || dr.start;
       const end   = s.endDate   || dr.end;
       ScheduleGrid.init(`hotel-schedule-${s.id}`, s.id, start, end);
-    });
+    }
   }
 
   function switchHotelTab(sportId) {
@@ -356,6 +357,14 @@ const App = (() => {
     document.querySelectorAll('.tab-panel').forEach(p => {
       p.classList.toggle('active', p.id === `hotel-tab-${sportId}`);
     });
+    // Re-init ScheduleGrid with the correct sportId for this tab
+    const sport = DataManager.getSport(sportId);
+    if (sport) {
+      const dr    = DataManager.getDateRange();
+      const start = sport.startDate || dr.start;
+      const end   = sport.endDate   || dr.end;
+      ScheduleGrid.init(`hotel-schedule-${sportId}`, sportId, start, end);
+    }
   }
 
   // ── Soccer Config ─────────────────────────────────────────────────────────
@@ -638,6 +647,12 @@ const App = (() => {
                 <button class="btn btn-outline" onclick="App.exportSchedules('csv')" style="font-size:12px">
                   📄 スケジュールデータ (schedules.csv) をダウンロード
                 </button>
+                <button class="btn btn-primary" onclick="App.exportScheduleTemplate()" style="background:#8e44ad;border-color:#8e44ad">
+                  📋 スケジュール入力テンプレート (.xlsx) をダウンロード
+                </button>
+                <div style="font-size:11px;color:#7f8c8d;margin-top:-4px;padding:0 4px">
+                  ↑ チェックイン・朝食・夕食・チェックアウトが競技ごとに自動入力済。Excelで編集後アップロード可能。カテゴリ・競技ID一覧・使い方シート付き。
+                </div>
                 <button class="btn btn-primary" onclick="App.exportFull()">
                   💾 全データバックアップ (backup.xlsx) をダウンロード
                 </button>
@@ -1016,6 +1031,11 @@ const App = (() => {
     }
   }
 
+  function exportScheduleTemplate() {
+    ExportManager.exportScheduleTemplate();
+    showToast('スケジュール入力テンプレートをダウンロードしました');
+  }
+
   function exportFull() {
     ExportManager.exportFullXLSX();
     showToast('バックアップをダウンロードしました');
@@ -1055,7 +1075,7 @@ const App = (() => {
     showSportSettingsModal, closeSportSettingsModal, saveSportSettings,
     showHotelSettingsModal, closeHotelSettingsModal, saveHotelSettings,
     importMaster, importSchedules, importFull,
-    exportMaster, exportSchedules, exportFull,
+    exportMaster, exportSchedules, exportFull, exportScheduleTemplate,
     clearAllData, quickUpdateSport,
     showToast,
   };

@@ -358,9 +358,32 @@ const DataManager = (() => {
     return master;
   }
 
+  // Map Japanese column headers → English field names
+  const _JA_TO_EN = {
+    '競技ID':             'sportId',
+    '競技名':             'sportName',
+    '日付(YYYY-MM-DD)':   'date',
+    'タイトル':           'title',
+    '開始時刻(HH:MM)':    'startTime',
+    '終了時刻(HH:MM)':    'endTime',
+    'カテゴリID':         'category',
+    '詳細コメント':       'note',
+    'カラー(省略可)':     'color',
+  };
+
+  function _normalizeRow(row) {
+    const out = {};
+    for (const [k, v] of Object.entries(row)) {
+      const mapped = _JA_TO_EN[k.trim()] || k;
+      out[mapped] = v;
+    }
+    return out;
+  }
+
   function _importScheduleRows(rows) {
     const newSchedules = {};
-    for (const r of rows) {
+    for (const raw of rows) {
+      const r = _normalizeRow(raw);
       if (!r.sportId || !r.date) continue;
       const key = `${r.sportId}|${r.date}`;
       if (!newSchedules[key]) newSchedules[key] = [];

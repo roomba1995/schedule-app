@@ -74,7 +74,10 @@ const ExportManager = (() => {
             const continuing = matching.filter(ev => ev.startTime !== timeLabel);
             let cellText = '';
             if (starting.length > 0) {
-              cellText = starting.map(ev => `▶${ev.title}(${ev.startTime}–${ev.endTime})`).join('\n');
+              cellText = starting.map(ev => {
+                const note = ev.note ? `\n　📝 ${ev.note}` : '';
+                return `▶${ev.title}(${ev.startTime}–${ev.endTime})${note}`;
+              }).join('\n');
             } else if (continuing.length > 0) {
               cellText = continuing.map(ev => `　${ev.title}`).join('\n');
             }
@@ -418,13 +421,162 @@ const ExportManager = (() => {
     XLSX.writeFile(wb, 'master.xlsx');
   }
 
+  // ── Japanese key mapping ─────────────────────────────────────────────────
+  const JA_HEADERS = {
+    sportId:   '競技ID',
+    sportName: '競技名',
+    date:      '日付(YYYY-MM-DD)',
+    title:     'タイトル',
+    startTime: '開始時刻(HH:MM)',
+    endTime:   '終了時刻(HH:MM)',
+    category:  'カテゴリID',
+    note:      '詳細コメント',
+    color:     'カラー(省略可)',
+  };
+
+  function _toJaRow(r) {
+    return {
+      [JA_HEADERS.sportId]:   r.sportId   || '',
+      [JA_HEADERS.sportName]: r.sportName || '',
+      [JA_HEADERS.date]:      r.date      || '',
+      [JA_HEADERS.title]:     r.title     || '',
+      [JA_HEADERS.startTime]: r.startTime || '',
+      [JA_HEADERS.endTime]:   r.endTime   || '',
+      [JA_HEADERS.category]:  r.category  || '',
+      [JA_HEADERS.note]:      r.note      || '',
+      [JA_HEADERS.color]:     r.color     || '',
+    };
+  }
+
+  function _schedColWidths() {
+    return [
+      { wch: 16 }, // 競技ID
+      { wch: 22 }, // 競技名
+      { wch: 16 }, // 日付
+      { wch: 22 }, // タイトル
+      { wch: 14 }, // 開始時刻
+      { wch: 14 }, // 終了時刻
+      { wch: 18 }, // カテゴリID
+      { wch: 45 }, // 詳細コメント
+      { wch: 14 }, // カラー
+    ];
+  }
+
+  function _appendRefSheets(wb) {
+    // ── Category reference ────────────────────────────────────────────────
+    const cats = DataManager.getCategories();
+    const catRows = cats.map(c => ({
+      'カテゴリID (このIDをスケジュールに入力)': c.id,
+      'カテゴリ名': c.name,
+      'カラー': c.color,
+    }));
+    const catWs = XLSX.utils.json_to_sheet(catRows.length ? catRows : [{}]);
+    catWs['!cols'] = [{ wch: 38 }, { wch: 22 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, catWs, 'カテゴリ一覧');
+
+    // ── Sport reference ───────────────────────────────────────────────────
+    const sports = DataManager.getSports();
+    const dr     = DataManager.getDateRange();
+    const sportRows = sports.map(s => ({
+      '競技ID (このIDをスケジュールに入力)': s.id,
+      '競技名': s.name,
+      '滞在開始日': s.startDate || dr.start,
+      '滞在終了日': s.endDate   || dr.end,
+    }));
+    const sportWs = XLSX.utils.json_to_sheet(sportRows.length ? sportRows : [{}]);
+    sportWs['!cols'] = [{ wch: 35 }, { wch: 28 }, { wch: 14 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, sportWs, '競技一覧');
+
+    // ── How-to sheet ──────────────────────────────────────────────────────
+    const howto = [
+      ['■ スケジュールの入力方法'],
+      [''],
+      ['列名', '説明', '入力例'],
+      [JA_HEADERS.sportId,   '「競技一覧」シートのIDをコピー', 'athletics'],
+      [JA_HEADERS.sportName, '自動参照用（入力不要）', '陸上（TF）'],
+      [JA_HEADERS.date,      '日付をYYYY-MM-DD形式で入力', '2026-09-16'],
+      [JA_HEADERS.title,     'スケジュールの短いタイトル', '朝食'],
+      [JA_HEADERS.startTime, 'HH:MM形式で入力', '07:00'],
+      [JA_HEADERS.endTime,   'HH:MM形式で入力', '08:30'],
+      [JA_HEADERS.category,  '「カテゴリ一覧」シートのIDをコピー', 'meal'],
+      [JA_HEADERS.note,      '印刷・PDF出力に反映される詳細情報', '3階レストランにて。食後エレベーターで客室へ'],
+      [JA_HEADERS.color,     '省略可。#rrggbb形式またはそのまま空白', '#f39c12'],
+      [''],
+      ['■ よく使うカテゴリID'],
+      ['checkin', 'チェックイン/アウト', ''],
+      ['meal', '食事', ''],
+      ['training', '練習・トレーニング', ''],
+      ['competition', '競技', ''],
+      ['transport', '移動・交通', ''],
+      ['meeting', 'ミーティング', ''],
+      ['rest', '休息・自由時間', ''],
+      [''],
+      ['■ 注意事項'],
+      ['・「スケジュール」シートのみアップロード対象です。他シートは変更不要です。'],
+      ['・日付はYYYY-MM-DD形式（例：2026-09-16）で入力してください。'],
+      ['・開始・終了時刻はHH:MM形式（例：07:00）で入力してください。'],
+      ['・アップロード後、既存のスケジュールデータは上書きされます。'],
+    ];
+    const howtoWs = XLSX.utils.aoa_to_sheet(howto);
+    howtoWs['!cols'] = [{ wch: 28 }, { wch: 45 }, { wch: 28 }];
+    XLSX.utils.book_append_sheet(wb, howtoWs, '使い方・注意事項');
+  }
+
   function exportSchedulesXLSX() {
     if (typeof XLSX === 'undefined') { alert('XLSXライブラリが必要です。'); return; }
     const rows = _schedulesToRows();
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ sportId:'', sportName:'', date:'', id:'', title:'', startTime:'', endTime:'', category:'', note:'', color:'' }]);
+    const empty = _toJaRow({ sportId:'', sportName:'', date:'', title:'', startTime:'', endTime:'', category:'', note:'', color:'' });
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows.map(_toJaRow) : [empty]);
+    ws['!cols'] = _schedColWidths();
     XLSX.utils.book_append_sheet(wb, ws, 'スケジュール');
+    _appendRefSheets(wb);
     XLSX.writeFile(wb, 'schedules.xlsx');
+  }
+
+  // ── Schedule template (pre-populated with check-in / meals / check-out) ──
+  function exportScheduleTemplate() {
+    if (typeof XLSX === 'undefined') { alert('XLSXライブラリが必要です。'); return; }
+    const wb   = XLSX.utils.book_new();
+    const dr   = DataManager.getDateRange();
+    const rows = [];
+
+    for (const sport of DataManager.getSports()) {
+      const start = sport.startDate || dr.start;
+      const end   = sport.endDate   || dr.end;
+      const dates = DataManager.getDatesInRange(start, end);
+
+      dates.forEach((date, i) => {
+        const isFirst = i === 0;
+        const isLast  = i === dates.length - 1;
+
+        if (isFirst) {
+          rows.push({ sportId: sport.id, sportName: sport.name, date,
+            title: 'チェックイン', startTime: '15:00', endTime: '16:00',
+            category: 'checkin', note: '', color: '' });
+        }
+
+        rows.push({ sportId: sport.id, sportName: sport.name, date,
+          title: '朝食', startTime: '07:00', endTime: '08:30',
+          category: 'meal', note: '', color: '' });
+
+        rows.push({ sportId: sport.id, sportName: sport.name, date,
+          title: '夕食', startTime: '18:00', endTime: '20:00',
+          category: 'meal', note: '', color: '' });
+
+        if (isLast) {
+          rows.push({ sportId: sport.id, sportName: sport.name, date,
+            title: 'チェックアウト', startTime: '10:00', endTime: '11:00',
+            category: 'checkin', note: '', color: '' });
+        }
+      });
+    }
+
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows.map(_toJaRow) : [_toJaRow({})]);
+    ws['!cols'] = _schedColWidths();
+    XLSX.utils.book_append_sheet(wb, ws, 'スケジュール');
+    _appendRefSheets(wb);
+    XLSX.writeFile(wb, 'schedules_template.xlsx');
   }
 
   function exportSchedulesCSV() {
@@ -507,6 +659,7 @@ const ExportManager = (() => {
     exportSportToWord, exportHotelToWord,
     downloadJSON,
     exportMasterXLSX, exportSchedulesXLSX, exportSchedulesCSV, exportFullXLSX,
+    exportScheduleTemplate,
     showExportModal, closeExportModal,
   };
 })();
