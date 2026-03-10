@@ -477,9 +477,10 @@ const ScheduleGrid = (() => {
 
       const colRect  = col.getBoundingClientRect();
       const relY     = e.clientY - colRect.top - _drag.offsetPx;
-      const slot     = Math.round(relY / SLOT_HEIGHT);
-      const clamped  = Math.max(0, Math.min(slot, (END_HOUR - START_HOUR) * SLOTS_PER_HOUR - 1));
-      const newStart = START_HOUR * 60 + clamped * 30;
+      const snapPx   = SLOT_HEIGHT / 2; // 15-min snap (same as resize)
+      const slot     = Math.round(relY / snapPx);
+      const clamped  = Math.max(0, Math.min(slot, (END_HOUR - START_HOUR) * SLOTS_PER_HOUR * 2 - 1));
+      const newStart = START_HOUR * 60 + clamped * 15;
       _drag.targetMins = Math.max(START_HOUR * 60,
                            Math.min(newStart, END_HOUR * 60 - _drag.durMins));
     }
