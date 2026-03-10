@@ -25,6 +25,14 @@ const DataManager = (() => {
     if (!master) {
       master = JSON.parse(JSON.stringify(EMBEDDED_MASTER));
       _saveMaster();
+    } else {
+      // Merge new sports from EMBEDDED_MASTER that are not in saved master
+      const existingIds = new Set((master.sports || []).map(s => s.id));
+      const newSports = (EMBEDDED_MASTER.sports || []).filter(s => !existingIds.has(s.id));
+      if (newSports.length > 0) {
+        master.sports = (master.sports || []).concat(newSports);
+        _saveMaster();
+      }
     }
 
     // Load schedules
