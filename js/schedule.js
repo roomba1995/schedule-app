@@ -16,6 +16,7 @@ const ScheduleGrid = (() => {
   let _dates      = [];        // array of 'YYYY-MM-DD' strings
   let _container  = null;      // DOM element
   let _clipboard  = null;      // { events: [...], fromDate: '...' }
+  let _drag       = null;      // drag state
 
   // ── Time helpers ─────────────────────────────────────────────────────────
   function timeToMinutes(t) {
@@ -165,6 +166,8 @@ const ScheduleGrid = (() => {
           </div>
         </div>
       </div>`;
+
+    _initDragDrop();
   }
 
   // ── Event block ──────────────────────────────────────────────────────────
@@ -185,8 +188,8 @@ const ScheduleGrid = (() => {
       : '';
     return `
       <div class="event-block${hasPopup ? ' has-note' : ''}"
-           style="top:${top}px;height:${height}px;background:${color};"
-           onclick="event.stopPropagation();ScheduleGrid.showEventModal('${ev.id}','${date}')"
+           style="top:${top}px;height:${height}px;background:${color};cursor:grab;"
+           data-event-id="${ev.id}" data-date="${date}"
            title="${safeTitle}">
         <div class="event-time">${ev.startTime}–${ev.endTime}</div>
         <div class="event-title">${ev.title || ''}${hasPopup ? ' <span class="note-icon">💬</span>' : ''}</div>
@@ -315,6 +318,129 @@ const ScheduleGrid = (() => {
 
     DataManager.saveEvent(_sportId, date, ev);
     closeEventModal();
+    render();
+  }
+
+  // ── Drag & Drop ──────────────────────────────────────────────────────────
+  function _initDragDrop() {
+    const grid = _container && _container.querySelector('.schedule-grid');
+    if (!grid) return;
+    // Use a fresh listener each render (grid is recreated)
+    grid.addEventListener('mousedown', _onGridMouseDown);
+  }
+
+  function _onGridMouseDown(e) {
+    if (e.button !== 0) return;
+    if (e.target.closest('.event-note-popup')) return;
+    const block = e.target.closest('.event-block');
+    if (!block) return;
+    const eventId = block.dataset.eventId;
+    const date    = block.dataset.date;
+    if (!eventId || !date) return;
+
+    const ev = DataManager.getEvents(_sportId, date).find(x => x.id === eventId);
+    if (!ev) return;
+
+    e.preventDefault(); // prevent text selection while dragging
+
+    const blockRect = block.getBoundingClientRect();
+    _drag = {
+      eventId, date, ev,
+      durMins:    timeToMinutes(ev.endTime) - timeToMinutes(ev.startTime),
+      offsetPx:   e.clientY - blockRect.top,
+      origBlock:  block,
+      ghost:      null,
+      moved:      false,
+      initX:      e.clientX,
+      initY:      e.clientY,
+      targetDate: date,
+      targetMins: timeToMinutes(ev.startTime),
+    };
+
+    document.addEventListener('mousemove', _onDragMove);
+    document.addEventListener('mouseup',   _onDragUp);
+  }
+
+  function _onDragMove(e) {
+    if (!_drag) return;
+    const dx = e.clientX - _drag.initX;
+    const dy = e.clientY - _drag.initY;
+
+    // Create ghost on first significant movement
+    if (!_drag.moved) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      _drag.moved = true;
+      const br    = _drag.origBlock.getBoundingClientRect();
+      const ghost = _drag.origBlock.cloneNode(true);
+      ghost.style.cssText = `
+        position:fixed;pointer-events:none;z-index:9999;
+        width:${br.width}px;height:${br.height}px;
+        opacity:0.8;cursor:grabbing;
+        box-shadow:0 6px 20px rgba(0,0,0,0.35);
+        border-radius:6px;transition:none;
+      `;
+      document.body.appendChild(ghost);
+      _drag.ghost = ghost;
+      _drag.origBlock.classList.add('event-dragging');
+    }
+
+    // Move ghost (anchored to cursor offset inside original block)
+    const ghost = _drag.ghost;
+    ghost.style.top  = (e.clientY - _drag.offsetPx) + 'px';
+    ghost.style.left = (e.clientX - ghost.offsetWidth / 2) + 'px';
+
+    // Determine target column and snapped time
+    const grid = _container.querySelector('.schedule-grid');
+    if (!grid) return;
+    grid.querySelectorAll('.date-column').forEach(c => c.classList.remove('drag-over'));
+    const el  = document.elementFromPoint(e.clientX, e.clientY); // ghost has pointer-events:none
+    const col = el && el.closest('.date-column');
+    if (col && _dates.includes(col.dataset.date)) {
+      col.classList.add('drag-over');
+      _drag.targetDate = col.dataset.date;
+
+      const colRect  = col.getBoundingClientRect();
+      const relY     = e.clientY - colRect.top - _drag.offsetPx;
+      const slot     = Math.round(relY / SLOT_HEIGHT);
+      const clamped  = Math.max(0, Math.min(slot, (END_HOUR - START_HOUR) * SLOTS_PER_HOUR - 1));
+      const newStart = START_HOUR * 60 + clamped * 30;
+      _drag.targetMins = Math.max(START_HOUR * 60,
+                           Math.min(newStart, END_HOUR * 60 - _drag.durMins));
+    }
+  }
+
+  function _onDragUp(e) {
+    document.removeEventListener('mousemove', _onDragMove);
+    document.removeEventListener('mouseup',   _onDragUp);
+    if (!_drag) return;
+
+    const { eventId, date: origDate, ev, durMins,
+            ghost, origBlock, moved, targetDate, targetMins } = _drag;
+    _drag = null;
+
+    if (ghost) ghost.remove();
+    origBlock.classList.remove('event-dragging');
+
+    const grid = _container && _container.querySelector('.schedule-grid');
+    if (grid) grid.querySelectorAll('.date-column').forEach(c => c.classList.remove('drag-over'));
+
+    if (!moved) {
+      // Treat as a regular click → open modal
+      showEventModal(eventId, origDate);
+      return;
+    }
+
+    const newStart = minutesToTime(targetMins);
+    const newEnd   = minutesToTime(targetMins + durMins);
+
+    if (targetDate === origDate && newStart === ev.startTime) return; // no change
+
+    if (targetDate !== origDate) {
+      DataManager.deleteEvent(_sportId, origDate, eventId);
+      DataManager.saveEvent(_sportId, targetDate, { ...ev, startTime: newStart, endTime: newEnd });
+    } else {
+      DataManager.saveEvent(_sportId, origDate, { ...ev, startTime: newStart, endTime: newEnd });
+    }
     render();
   }
 

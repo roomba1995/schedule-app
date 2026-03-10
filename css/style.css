@@ -383,13 +383,26 @@ select:focus, textarea:focus {
   padding: 2px 5px;
   font-size: 11px;
   line-height: 1.3;
-  cursor: pointer;
+  cursor: grab;
   overflow: hidden;
   z-index: 5;
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
   transition: box-shadow 0.15s, opacity 0.15s;
   color: white;
   user-select: none;
+}
+
+/* Dragging state */
+.event-block.event-dragging {
+  opacity: 0.25 !important;
+  cursor: grabbing;
+}
+
+/* Drop target highlight */
+.date-column.drag-over {
+  background: rgba(52, 152, 219, 0.08);
+  outline: 2px dashed rgba(52, 152, 219, 0.5);
+  outline-offset: -2px;
 }
 
 .event-block:hover {
