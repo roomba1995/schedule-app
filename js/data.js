@@ -367,6 +367,8 @@ const DataManager = (() => {
     '開始時刻(HH:MM)':    'startTime',
     '終了時刻(HH:MM)':    'endTime',
     'カテゴリID':         'category',
+    'フロア数(数字)':     'floor',
+    '場所':               'location',
     '詳細コメント':       'note',
     'カラー(省略可)':     'color',
   };
@@ -405,6 +407,8 @@ const DataManager = (() => {
         startTime: r.startTime || '09:00',
         endTime: r.endTime || '10:00',
         category: r.category || '',
+        floor: r.floor != null && r.floor !== '' ? Number(r.floor) : undefined,
+        location: r.location || undefined,
         note: r.note || '',
         color: r.color || '',
       });

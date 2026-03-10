@@ -192,106 +192,69 @@ const ExportManager = (() => {
   }
 
   function buildWordHTML(sport, dates, pageBreak = false) {
-    const START_HOUR = 6;
-    const END_HOUR   = 24;
+    const TH = 'background:#2c3e50;color:white;padding:6px 8px;font-size:11pt;border:1px solid #2c3e50;text-align:center;';
+    const TD = 'padding:6px 8px;font-size:10.5pt;border:1px solid #aaa;vertical-align:top;line-height:1.6;';
 
-    // Build table rows
-    let tableRows = '';
+    // Resolve hotel name
+    const hotels = DataManager.getHotelsForSport(sport.id);
+    const hotelName = hotels.length > 0 ? hotels.map(h => h.name).join('、') : '';
 
-    // Header row
-    const dateHeaders = dates.map(d => `
-      <th style="background:#2c3e50;color:white;padding:4px 6px;font-size:11px;white-space:nowrap;border:1px solid #ccc;min-width:90px;">
-        ${DataManager.formatDate(d)}
-      </th>`).join('');
-
-    tableRows += `
+    // Build rows per day
+    let tableRows = `
       <tr>
-        <th style="background:#2c3e50;color:white;padding:4px 6px;font-size:11px;width:50px;border:1px solid #ccc;">時刻</th>
-        ${dateHeaders}
+        <th style="${TH}width:90pt;">年月日</th>
+        <th style="${TH}width:80pt;">予定時間</th>
+        <th style="${TH}">行動予定</th>
       </tr>`;
 
-    // Precompute: for each date, collect events and their slot spans
-    const dateEventMaps = {};
     for (const date of dates) {
       const events = DataManager.getEvents(sport.id, date);
-      const map = {}; // slotKey → event
-      events.forEach(ev => {
-        const sMin = timeToMinutes(ev.startTime);
-        const eMin = timeToMinutes(ev.endTime);
-        for (let m = sMin; m < eMin; m += 30) {
-          if (m >= START_HOUR * 60 && m < END_HOUR * 60) {
-            map[m] = ev;
-          }
+      const [y, mo, d] = date.split('-');
+      const dow = ['日','月','火','水','木','金','土'][new Date(date).getDay()];
+      const dateLabel = `${y}/${Number(mo)}/${Number(d)}（${dow}）`;
+
+      if (events.length === 0) {
+        tableRows += `
+          <tr>
+            <td style="${TD}white-space:nowrap;">${dateLabel}</td>
+            <td style="${TD}"></td>
+            <td style="${TD}"></td>
+          </tr>`;
+        continue;
+      }
+
+      events.forEach((ev, i) => {
+        const timeStr = `${ev.startTime}～${ev.endTime}`;
+        const parts = [ev.title];
+        if (ev.floor || ev.location) {
+          parts.push([ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join(' '));
+        }
+        if (ev.note) parts.push(ev.note);
+        const activity = parts.join('<br>');
+
+        if (i === 0) {
+          tableRows += `
+            <tr>
+              <td rowspan="${events.length}" style="${TD}white-space:nowrap;">${dateLabel}</td>
+              <td style="${TD}white-space:nowrap;">${timeStr}</td>
+              <td style="${TD}">${activity}</td>
+            </tr>`;
+        } else {
+          tableRows += `
+            <tr>
+              <td style="${TD}white-space:nowrap;">${timeStr}</td>
+              <td style="${TD}">${activity}</td>
+            </tr>`;
         }
       });
-      dateEventMaps[date] = map;
-    }
-
-    // Track which cells have been rendered (for rowspan)
-    const rendered = {}; // `${date}|${slotMins}` → true
-
-    for (let h = START_HOUR; h < END_HOUR; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        const slotMins  = h * 60 + m;
-        const timeLabel = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-        const isHour    = m === 0;
-
-        let rowHtml = `
-          <tr>
-            <td style="padding:2px 4px;font-size:10px;font-weight:${isHour?'bold':'normal'};background:${isHour?'#f8f9fa':'white'};border:1px solid #ddd;white-space:nowrap;vertical-align:top;">
-              ${isHour ? timeLabel : ''}
-            </td>`;
-
-        for (const date of dates) {
-          const key = `${date}|${slotMins}`;
-          if (rendered[key]) continue;
-
-          const ev = dateEventMaps[date][slotMins];
-          if (!ev) {
-            rowHtml += `<td style="padding:2px;border:1px solid #eee;min-height:16px;">&nbsp;</td>`;
-          } else {
-            // Only render if this is the start slot of the event
-            const evStartMins = timeToMinutes(ev.startTime);
-            if (evStartMins === slotMins) {
-              const evEndMins  = timeToMinutes(ev.endTime);
-              const rowspan    = Math.ceil((evEndMins - evStartMins) / 30);
-              const cat        = DataManager.getCategory(ev.category) || { color: '#7f8c8d' };
-              const bgColor    = ev.color || cat.color;
-              const textColor  = _lightOrDark(bgColor) === 'light' ? '#333' : '#fff';
-
-              // Mark all covered slots as rendered
-              for (let ms = evStartMins; ms < evEndMins; ms += 30) {
-                rendered[`${date}|${ms}`] = true;
-              }
-
-              rowHtml += `
-                <td rowspan="${rowspan}" style="
-                  background:${bgColor};color:${textColor};
-                  padding:3px 5px;font-size:10px;border:1px solid #ccc;
-                  vertical-align:top;">
-                  <strong>${ev.title}</strong><br>
-                  <span style="font-size:9px;">${ev.startTime}–${ev.endTime}</span>
-                  ${ev.note ? `<br><span style="font-size:9px;">${ev.note}</span>` : ''}
-                </td>`;
-            } else {
-              // This slot is part of an event but not its start - skip (rowspan handles it)
-              // But we need to not add a cell here
-            }
-          }
-        }
-
-        rowHtml += '</tr>';
-        tableRows += rowHtml;
-      }
     }
 
     const pb = pageBreak ? '<div style="page-break-before:always;"></div>' : '';
     return `
       ${pb}
-      <h2 style="font-size:16px;margin:16px 0 8px;color:#2c3e50;">${sport.name} スケジュール</h2>
-      <p style="font-size:12px;color:#7f8c8d;margin-bottom:8px;">
-        滞在期間: ${DataManager.formatDateFull(dates[0])} ～ ${DataManager.formatDateFull(dates[dates.length-1])}
-      </p>
+      <p style="text-align:center;font-size:16pt;font-weight:bold;margin:0 0 12pt;">行動計画表（ドラフト）</p>
+      <p style="font-size:11pt;font-weight:bold;margin:0 0 4pt;">競技：${sport.name}</p>
+      ${hotelName ? `<p style="font-size:11pt;font-weight:bold;margin:0 0 12pt;">宿泊施設：${hotelName}</p>` : '<p style="margin:0 0 12pt;"></p>'}
       <table style="border-collapse:collapse;width:100%;font-family:'Meiryo','Yu Gothic',sans-serif;">
         ${tableRows}
       </table>`;
@@ -309,7 +272,8 @@ const ExportManager = (() => {
   <xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument></xml>
   <![endif]-->
   <style>
-    body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 11pt; margin: 20mm; }
+    @page { margin: 25.4mm; }
+    body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 11pt; margin: 25.4mm; }
     table { border-collapse: collapse; }
     td, th { border: 1px solid #ccc; }
   </style>
@@ -430,6 +394,8 @@ const ExportManager = (() => {
     startTime: '開始時刻(HH:MM)',
     endTime:   '終了時刻(HH:MM)',
     category:  'カテゴリID',
+    floor:     'フロア数(数字)',
+    location:  '場所',
     note:      '詳細コメント',
     color:     'カラー(省略可)',
   };
@@ -443,6 +409,8 @@ const ExportManager = (() => {
       [JA_HEADERS.startTime]: r.startTime || '',
       [JA_HEADERS.endTime]:   r.endTime   || '',
       [JA_HEADERS.category]:  r.category  || '',
+      [JA_HEADERS.floor]:     r.floor     != null ? r.floor : '',
+      [JA_HEADERS.location]:  r.location  || '',
       [JA_HEADERS.note]:      r.note      || '',
       [JA_HEADERS.color]:     r.color     || '',
     };
@@ -472,6 +440,8 @@ const ExportManager = (() => {
       { wch: 14 }, // 開始時刻
       { wch: 14 }, // 終了時刻
       { wch: 18 }, // カテゴリID
+      { wch: 10 }, // フロア数
+      { wch: 24 }, // 場所
       { wch: 45 }, // 詳細コメント
       { wch: 14 }, // カラー
     ];
@@ -514,7 +484,9 @@ const ExportManager = (() => {
       [JA_HEADERS.startTime, 'HH:MM形式で入力', '07:00'],
       [JA_HEADERS.endTime,   'HH:MM形式で入力', '08:30'],
       [JA_HEADERS.category,  '「カテゴリ一覧」シートのIDをコピー', 'meal'],
-      [JA_HEADERS.note,      '印刷・PDF出力に反映される詳細情報', '3階レストランにて。食後エレベーターで客室へ'],
+      [JA_HEADERS.floor,     '省略可。フロア数（数字のみ）', '3'],
+      [JA_HEADERS.location,  '省略可。場所の名称', 'ファンクションルーム「葵」'],
+      [JA_HEADERS.note,      '印刷・Word出力に反映される詳細情報', '3階レストランにて。食後エレベーターで客室へ'],
       [JA_HEADERS.color,     '省略可。#rrggbb形式またはそのまま空白', '#f39c12'],
       [''],
       ['■ よく使うカテゴリID'],
