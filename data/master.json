@@ -209,6 +209,30 @@
       "startDate": "",
       "endDate": "",
       "note": ""
+    },
+    {
+      "id": "artistic_swimming",
+      "name": "アーティスティックスイミング",
+      "shortName": "アーティスティック",
+      "isSoccer": false,
+      "color": "#5dade2",
+      "venueIds": [],
+      "hotelIds": [],
+      "startDate": "",
+      "endDate": "",
+      "note": ""
+    },
+    {
+      "id": "diving",
+      "name": "飛込",
+      "shortName": "飛込",
+      "isSoccer": false,
+      "color": "#48c9b0",
+      "venueIds": [],
+      "hotelIds": [],
+      "startDate": "",
+      "endDate": "",
+      "note": ""
     }
   ],
   "hotels": [
