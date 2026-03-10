@@ -225,14 +225,16 @@ const ExportManager = (() => {
       }
 
       events.forEach((ev, i) => {
-        // Determine background color from event color or category color
+        // Determine color from event color or category color
         const cat = catMap[ev.category];
-        const bgColor = ev.color || (cat ? cat.color : null);
-        const fgColor = bgColor ? (_lightOrDark(bgColor) === 'light' ? '#1a1a1a' : '#ffffff') : '';
-        const colorStyle = bgColor ? `background:${bgColor};color:${fgColor};` : '';
+        const evColor = ev.color || (cat ? cat.color : null);
 
+        // Title text colored with category color; rest of content is default
+        const titleHtml = evColor
+          ? `<span style="color:${evColor};font-weight:bold;">${ev.title}</span>`
+          : ev.title;
         const timeStr = `${ev.startTime}～${ev.endTime}`;
-        const parts = [ev.title];
+        const parts = [titleHtml];
         if (ev.floor || ev.location) {
           parts.push([ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join(' '));
         }
@@ -243,14 +245,14 @@ const ExportManager = (() => {
           tableRows += `
             <tr>
               <td rowspan="${events.length}" style="${TD}white-space:nowrap;">${dateLabel}</td>
-              <td style="${TD}white-space:nowrap;${colorStyle}">${timeStr}</td>
-              <td style="${TD}${colorStyle}">${activity}</td>
+              <td style="${TD}white-space:nowrap;">${timeStr}</td>
+              <td style="${TD}">${activity}</td>
             </tr>`;
         } else {
           tableRows += `
             <tr>
-              <td style="${TD}white-space:nowrap;${colorStyle}">${timeStr}</td>
-              <td style="${TD}${colorStyle}">${activity}</td>
+              <td style="${TD}white-space:nowrap;">${timeStr}</td>
+              <td style="${TD}">${activity}</td>
             </tr>`;
         }
       });
