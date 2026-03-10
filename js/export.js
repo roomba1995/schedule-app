@@ -675,12 +675,90 @@ const ExportManager = (() => {
     if (m) m.remove();
   }
 
+  // ── Hotel Rooms Export/Import ─────────────────────────────────────────────
+  function _mkRoomId(prefix) {
+    return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  }
+
+  function exportHotelRoomsXLSX(hotelId) {
+    if (typeof XLSX === 'undefined') {
+      alert('Excelライブラリがロードされていないためエクスポートできません。');
+      return;
+    }
+    const hotel = DataManager.getHotel(hotelId);
+    if (!hotel) return;
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: 客室
+    const guestRooms = DataManager.getGuestRooms(hotelId);
+    const grAoa = [
+      ['部屋タイプ', '室数', '平米', '最低階', '最高階', '表示色(#RRGGBB)', '備考'],
+      ...guestRooms.map(r => [r.type||'', r.count||'', r.sqm||'', r.floorMin||'', r.floorMax||'', r.color||'', r.note||''])
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(grAoa);
+    ws1['!cols'] = [{wch:22},{wch:6},{wch:6},{wch:6},{wch:6},{wch:16},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, ws1, '客室');
+
+    // Sheet 2: ファンクションルーム
+    const funcRooms = DataManager.getFunctionRooms(hotelId);
+    const frAoa = [
+      ['部屋名', '階数', '平米', '収容人数', '備考'],
+      ...funcRooms.map(r => [r.name||'', r.floor||'', r.sqm||'', r.capacity||'', r.note||''])
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(frAoa);
+    ws2['!cols'] = [{wch:22},{wch:6},{wch:6},{wch:10},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'ファンクションルーム');
+
+    XLSX.writeFile(wb, `hotel_rooms_${hotel.name}.xlsx`);
+  }
+
+  function importHotelRoomsXLSX(hotelId, workbook) {
+    const hotel = DataManager.getHotel(hotelId);
+    if (!hotel) throw new Error('ホテルが見つかりません');
+
+    const grSheet = workbook.Sheets['客室'];
+    if (grSheet) {
+      const rows = XLSX.utils.sheet_to_json(grSheet, { defval: '' });
+      const rooms = rows
+        .map(r => ({
+          id: _mkRoomId('gr'),
+          type: String(r['部屋タイプ'] || '').trim(),
+          count: Number(r['室数']) || 0,
+          sqm: Number(r['平米']) || 0,
+          floorMin: Number(r['最低階']) || 1,
+          floorMax: Number(r['最高階']) || 1,
+          color: String(r['表示色(#RRGGBB)'] || r['表示色'] || '').trim(),
+          note: String(r['備考'] || '').trim(),
+        }))
+        .filter(r => r.type);
+      DataManager.updateHotel(hotelId, { guestRooms: rooms });
+    }
+
+    const frSheet = workbook.Sheets['ファンクションルーム'];
+    if (frSheet) {
+      const rows = XLSX.utils.sheet_to_json(frSheet, { defval: '' });
+      const rooms = rows
+        .map(r => ({
+          id: _mkRoomId('fr'),
+          name: String(r['部屋名'] || '').trim(),
+          floor: Number(r['階数']) || 1,
+          sqm: Number(r['平米']) || 0,
+          capacity: Number(r['収容人数']) || 0,
+          note: String(r['備考'] || '').trim(),
+        }))
+        .filter(r => r.name);
+      DataManager.updateHotel(hotelId, { functionRooms: rooms });
+    }
+    return true;
+  }
+
   return {
     exportSportToExcel, exportAllToExcel, exportHotelToExcel,
     exportSportToWord, exportHotelToWord,
     downloadJSON,
     exportMasterXLSX, exportSchedulesXLSX, exportSchedulesCSV, exportFullXLSX,
     exportScheduleTemplate,
+    exportHotelRoomsXLSX, importHotelRoomsXLSX,
     showExportModal, closeExportModal,
   };
 })();

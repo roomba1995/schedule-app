@@ -4,6 +4,8 @@
  */
 const App = (() => {
 
+  let _currentHotelId = null;  // tracks the currently viewed hotel
+
   // ── Router ───────────────────────────────────────────────────────────────
   function navigate(hash) {
     window.location.hash = hash;
@@ -273,6 +275,7 @@ const App = (() => {
 
   // ── Hotel View ────────────────────────────────────────────────────────────
   function renderHotelView(hotelId, container) {
+    _currentHotelId = hotelId;
     const hotel  = DataManager.getHotel(hotelId);
     if (!hotel) {
       container.innerHTML = '<p class="text-muted text-center" style="padding:40px">ホテルが見つかりません</p>';
@@ -338,6 +341,29 @@ const App = (() => {
           ${tabBar}
           ${tabPanels}
         </div>
+      </div>
+
+      <div class="card mt-2" id="facilities-card-${hotelId}">
+        <div class="card-header">
+          <h2>🏢 施設情報</h2>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-xs btn-secondary" onclick="App.downloadRoomsTemplate('${hotelId}')">↓ Excel DL</button>
+            <label class="btn btn-xs btn-secondary" style="cursor:pointer;margin:0">
+              ↑ アップロード
+              <input type="file" class="hidden" accept=".xlsx" onchange="App.uploadRoomsFile('${hotelId}', this)">
+            </label>
+          </div>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <div class="tab-bar" id="fac-tab-bar-${hotelId}">
+            <button class="tab-btn active" data-tab="guest" onclick="App.switchFacilitiesTab('${hotelId}','guest')">🛏 客室</button>
+            <button class="tab-btn" data-tab="func" onclick="App.switchFacilitiesTab('${hotelId}','func')">🎪 ファンクションルーム</button>
+            <button class="tab-btn" data-tab="map" onclick="App.switchFacilitiesTab('${hotelId}','map')">🗺 フロア図</button>
+          </div>
+          <div id="fac-tab-guest-${hotelId}" class="tab-panel active">${_renderGuestRoomsTabHTML(hotelId)}</div>
+          <div id="fac-tab-func-${hotelId}" class="tab-panel">${_renderFunctionRoomsTabHTML(hotelId)}</div>
+          <div id="fac-tab-map-${hotelId}" class="tab-panel">${_renderFloorMapHTML(hotelId)}</div>
+        </div>
       </div>`;
 
     // Init only the first (active) tab's grid; others are initialized on tab switch
@@ -346,16 +372,21 @@ const App = (() => {
       const dr    = DataManager.getDateRange();
       const start = s.startDate || dr.start;
       const end   = s.endDate   || dr.end;
-      ScheduleGrid.init(`hotel-schedule-${s.id}`, s.id, start, end);
+      ScheduleGrid.init(`hotel-schedule-${s.id}`, s.id, start, end, hotelId);
     }
   }
 
   function switchHotelTab(sportId) {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    // Find the current hotel context by looking at active hotel tab panels
+    const hotelId = _currentHotelId;
+    document.querySelectorAll('#hotel-tab-bar .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.textContent.trim() === (DataManager.getSport(sportId)?.shortName || sportId));
     });
-    document.querySelectorAll('.tab-panel').forEach(p => {
-      p.classList.toggle('active', p.id === `hotel-tab-${sportId}`);
+    document.querySelectorAll('[id^="hotel-tab-"]').forEach(p => {
+      // Only switch panels under the hotel schedule (not facility tabs)
+      if (!p.id.startsWith('fac-tab-')) {
+        p.classList.toggle('active', p.id === `hotel-tab-${sportId}`);
+      }
     });
     // Re-init ScheduleGrid with the correct sportId for this tab
     const sport = DataManager.getSport(sportId);
@@ -363,8 +394,364 @@ const App = (() => {
       const dr    = DataManager.getDateRange();
       const start = sport.startDate || dr.start;
       const end   = sport.endDate   || dr.end;
-      ScheduleGrid.init(`hotel-schedule-${sportId}`, sportId, start, end);
+      ScheduleGrid.init(`hotel-schedule-${sportId}`, sportId, start, end, hotelId);
     }
+  }
+
+  // ── Facilities (Rooms + Floor Map) ────────────────────────────────────────
+
+  function _renderGuestRoomsTabHTML(hotelId) {
+    const rooms = DataManager.getGuestRooms(hotelId);
+    const rows = rooms.map(r => `
+      <tr>
+        <td style="padding:6px 10px;width:36px">
+          <div style="width:22px;height:22px;border-radius:4px;background:${r.color||'#bdc3c7'};border:1px solid rgba(0,0,0,0.1)"></div>
+        </td>
+        <td style="padding:6px 10px;font-weight:500">${r.type}</td>
+        <td style="padding:6px 10px;text-align:center">${r.count ? r.count+'室' : '-'}</td>
+        <td style="padding:6px 10px;text-align:center">${r.sqm ? r.sqm+'㎡' : '-'}</td>
+        <td style="padding:6px 10px;text-align:center">${r.floorMin}F〜${r.floorMax}F</td>
+        <td style="padding:6px 10px;font-size:12px;color:#7f8c8d">${r.note||''}</td>
+        <td style="padding:6px 10px;white-space:nowrap">
+          <button class="btn btn-xs btn-secondary" onclick="App.showGuestRoomModal('${hotelId}','${r.id}')">編集</button>
+          <button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="App.deleteGuestRoomConfirm('${hotelId}','${r.id}')">削除</button>
+        </td>
+      </tr>`).join('');
+    return `
+      <div style="padding:10px 0">
+        <button class="btn btn-primary btn-sm" onclick="App.showGuestRoomModal('${hotelId}',null)">＋ 客室タイプ追加</button>
+      </div>
+      ${rooms.length > 0 ? `
+        <table class="match-table" style="width:100%">
+          <thead>
+            <tr>
+              <th></th><th>部屋タイプ</th><th>室数</th><th>平米</th><th>フロア範囲</th><th>備考</th><th></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>` :
+        '<p class="text-muted" style="padding:20px 0;text-align:center;font-size:13px">客室タイプがまだ登録されていません</p>'
+      }`;
+  }
+
+  function _renderFunctionRoomsTabHTML(hotelId) {
+    const rooms = DataManager.getFunctionRooms(hotelId);
+    const rows = rooms.map(r => `
+      <tr>
+        <td style="padding:6px 10px;font-weight:500">${r.name}</td>
+        <td style="padding:6px 10px;text-align:center">${r.floor}F</td>
+        <td style="padding:6px 10px;text-align:center">${r.sqm ? r.sqm+'㎡' : '-'}</td>
+        <td style="padding:6px 10px;text-align:center">${r.capacity ? r.capacity+'名' : '-'}</td>
+        <td style="padding:6px 10px;font-size:12px;color:#7f8c8d">${r.note||''}</td>
+        <td style="padding:6px 10px;white-space:nowrap">
+          <button class="btn btn-xs btn-secondary" onclick="App.showFunctionRoomModal('${hotelId}','${r.id}')">編集</button>
+          <button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="App.deleteFunctionRoomConfirm('${hotelId}','${r.id}')">削除</button>
+        </td>
+      </tr>`).join('');
+    return `
+      <div style="padding:10px 0">
+        <button class="btn btn-primary btn-sm" onclick="App.showFunctionRoomModal('${hotelId}',null)">＋ ファンクションルーム追加</button>
+      </div>
+      ${rooms.length > 0 ? `
+        <table class="match-table" style="width:100%">
+          <thead>
+            <tr><th>部屋名</th><th>階数</th><th>平米</th><th>収容人数</th><th>備考</th><th></th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>` :
+        '<p class="text-muted" style="padding:20px 0;text-align:center;font-size:13px">ファンクションルームがまだ登録されていません</p>'
+      }`;
+  }
+
+  function _getFloorData(hotelId) {
+    const guestRooms = DataManager.getGuestRooms(hotelId);
+    const funcRooms  = DataManager.getFunctionRooms(hotelId);
+    const floorSet   = new Set();
+    guestRooms.forEach(r => {
+      for (let f = r.floorMin; f <= r.floorMax; f++) floorSet.add(f);
+    });
+    funcRooms.forEach(r => floorSet.add(r.floor));
+    const floors = [...floorSet].sort((a, b) => b - a); // highest first
+    return floors.map(floor => ({
+      floor,
+      guestRooms: guestRooms.filter(r => r.floorMin <= floor && r.floorMax >= floor),
+      funcRooms:  funcRooms.filter(r => r.floor === floor),
+    }));
+  }
+
+  function _renderFloorMapHTML(hotelId) {
+    const floorData = _getFloorData(hotelId);
+    if (floorData.length === 0) {
+      return `<p class="text-muted" style="padding:30px;text-align:center;font-size:13px">
+        客室またはファンクションルームを登録するとフロア図が表示されます
+      </p>`;
+    }
+
+    const rows = floorData.map(({ floor, guestRooms, funcRooms }) => {
+      const grBlocks = guestRooms.map(r => `
+        <div class="floor-room-block guest-room-block"
+             style="background:${r.color || '#3498db'}"
+             onclick="App.showGuestRoomModal('${hotelId}','${r.id}')"
+             title="${r.type}\n${r.count}室 ${r.sqm ? r.sqm+'㎡' : ''}">
+          <div class="frb-type">${r.type}</div>
+          <div class="frb-detail">×${r.count}室${r.sqm ? ` / ${r.sqm}㎡` : ''}</div>
+        </div>`).join('');
+
+      const frBlocks = funcRooms.map(fr => `
+        <div class="floor-room-block func-room-block"
+             onclick="App.showFunctionRoomModal('${hotelId}','${fr.id}')"
+             title="${fr.name}\n${fr.sqm ? fr.sqm+'㎡' : ''}${fr.capacity ? ' / '+fr.capacity+'名' : ''}">
+          <div class="frb-type">「${fr.name}」</div>
+          <div class="frb-detail">${fr.sqm ? fr.sqm+'㎡' : ''}${fr.capacity ? ' / '+fr.capacity+'名' : ''}</div>
+        </div>`).join('');
+
+      return `
+        <div class="floor-row">
+          <div class="floor-label">${floor}F</div>
+          <div class="floor-content">
+            ${grBlocks}${frBlocks}
+            <button class="floor-add-btn" onclick="App.showAddRoomAtFloorMenu('${hotelId}',${floor})" title="${floor}Fに追加">＋</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="floor-map">
+        <div class="floor-map-legend">
+          <span class="fmap-legend-item"><span class="fmap-legend-dot" style="background:#3498db"></span>客室</span>
+          <span class="fmap-legend-item"><span class="fmap-legend-dot" style="background:#9b59b6"></span>ファンクションルーム</span>
+          <span style="font-size:11px;color:#7f8c8d">ブロックをクリックで編集</span>
+        </div>
+        <div class="floor-map-building">
+          <div class="floor-map-roof">▲ 屋上</div>
+          ${rows}
+          <div class="floor-map-base"></div>
+        </div>
+      </div>`;
+  }
+
+  function switchFacilitiesTab(hotelId, tab) {
+    document.querySelectorAll(`#fac-tab-bar-${hotelId} .tab-btn`).forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    ['guest', 'func', 'map'].forEach(t => {
+      const panel = document.getElementById(`fac-tab-${t}-${hotelId}`);
+      if (panel) panel.classList.toggle('active', t === tab);
+    });
+  }
+
+  function _refreshFacilities(hotelId) {
+    const gPanel = document.getElementById(`fac-tab-guest-${hotelId}`);
+    const fPanel = document.getElementById(`fac-tab-func-${hotelId}`);
+    const mPanel = document.getElementById(`fac-tab-map-${hotelId}`);
+    if (gPanel) gPanel.innerHTML = _renderGuestRoomsTabHTML(hotelId);
+    if (fPanel) fPanel.innerHTML = _renderFunctionRoomsTabHTML(hotelId);
+    if (mPanel) mPanel.innerHTML = _renderFloorMapHTML(hotelId);
+  }
+
+  function downloadRoomsTemplate(hotelId) {
+    ExportManager.exportHotelRoomsXLSX(hotelId);
+    showToast('施設情報ファイルをダウンロードしました');
+  }
+
+  async function uploadRoomsFile(hotelId, input) {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      const buf = await readFileAsArrayBuffer(file);
+      const wb  = XLSX.read(new Uint8Array(buf), { type: 'array' });
+      ExportManager.importHotelRoomsXLSX(hotelId, wb);
+      _refreshFacilities(hotelId);
+      showToast('施設情報を更新しました', 'success');
+    } catch(e) {
+      alert('インポートエラー: ' + e.message);
+    }
+    input.value = '';
+  }
+
+  // ── Guest Room Modal ──────────────────────────────────────────────────────
+  function showGuestRoomModal(hotelId, roomId, prefillFloor) {
+    const room = roomId ? DataManager.getGuestRooms(hotelId).find(r => r.id === roomId) : null;
+    const colorSwatches = ['#3498db','#2ecc71','#e74c3c','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e']
+      .map(c => `<div class="color-swatch" style="background:${c}" onclick="document.getElementById('gr-color').value='${c}'"></div>`)
+      .join('');
+
+    const html = `
+      <div class="modal-overlay" id="guest-room-modal" onclick="if(event.target===this)App.closeGuestRoomModal()">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>${room ? '客室タイプ編集' : '客室タイプ追加'}</h3>
+            <button class="modal-close" onclick="App.closeGuestRoomModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>部屋タイプ名 *</label>
+              <input type="text" id="gr-type" value="${room ? (room.type||'').replace(/"/g,'&quot;') : ''}" placeholder="例：スタンダードシングル、ツインルームなど">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>室数</label>
+                <input type="number" id="gr-count" value="${room ? (room.count||'') : ''}" placeholder="例：20" min="0" style="width:90px">
+              </div>
+              <div class="form-group">
+                <label>平米</label>
+                <input type="number" id="gr-sqm" value="${room ? (room.sqm||'') : ''}" placeholder="例：25" min="0" step="0.1" style="width:90px">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>最低階</label>
+                <input type="number" id="gr-floor-min" value="${room ? room.floorMin : (prefillFloor||'')}" placeholder="例：3" min="1" style="width:80px">
+              </div>
+              <div class="form-group">
+                <label>最高階</label>
+                <input type="number" id="gr-floor-max" value="${room ? room.floorMax : (prefillFloor||'')}" placeholder="例：12" min="1" style="width:80px">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>表示色（フロア図での色）</label>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <input type="color" id="gr-color" value="${room && room.color ? room.color : '#3498db'}" style="width:52px;height:34px;padding:2px;">
+                <div style="display:flex;gap:5px">${colorSwatches}</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>備考</label>
+              <input type="text" id="gr-note" value="${room ? (room.note||'').replace(/"/g,'&quot;') : ''}" placeholder="例：禁煙フロア、海側など">
+            </div>
+          </div>
+          <div class="modal-footer">
+            ${room ? `<button class="btn btn-danger" onclick="App.deleteGuestRoomConfirm('${hotelId}','${roomId}')">削除</button>` : ''}
+            <button class="btn btn-secondary" onclick="App.closeGuestRoomModal()">キャンセル</button>
+            <button class="btn btn-primary" onclick="App.saveGuestRoomFromModal('${hotelId}','${roomId||''}')">保存</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function closeGuestRoomModal() {
+    const m = document.getElementById('guest-room-modal');
+    if (m) m.remove();
+  }
+
+  function saveGuestRoomFromModal(hotelId, roomId) {
+    const type     = document.getElementById('gr-type').value.trim();
+    const count    = parseInt(document.getElementById('gr-count').value)    || 0;
+    const sqm      = parseFloat(document.getElementById('gr-sqm').value)    || 0;
+    const floorMin = parseInt(document.getElementById('gr-floor-min').value) || 1;
+    const floorMax = parseInt(document.getElementById('gr-floor-max').value) || floorMin;
+    const color    = document.getElementById('gr-color').value;
+    const note     = document.getElementById('gr-note').value;
+
+    if (!type) { alert('部屋タイプ名を入力してください'); return; }
+    if (floorMax < floorMin) { alert('最高階は最低階以上にしてください'); return; }
+
+    DataManager.saveGuestRoom(hotelId, { id: roomId || undefined, type, count, sqm, floorMin, floorMax, color, note });
+    closeGuestRoomModal();
+    _refreshFacilities(hotelId);
+    showToast('客室タイプを保存しました');
+  }
+
+  function deleteGuestRoomConfirm(hotelId, roomId) {
+    if (!confirm('この客室タイプを削除しますか？')) return;
+    DataManager.deleteGuestRoom(hotelId, roomId);
+    closeGuestRoomModal();
+    _refreshFacilities(hotelId);
+    showToast('削除しました', 'warning');
+  }
+
+  // ── Function Room Modal ───────────────────────────────────────────────────
+  function showFunctionRoomModal(hotelId, roomId, prefillFloor) {
+    const room = roomId ? DataManager.getFunctionRooms(hotelId).find(r => r.id === roomId) : null;
+    const html = `
+      <div class="modal-overlay" id="func-room-modal" onclick="if(event.target===this)App.closeFunctionRoomModal()">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>${room ? 'ファンクションルーム編集' : 'ファンクションルーム追加'}</h3>
+            <button class="modal-close" onclick="App.closeFunctionRoomModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>部屋名 *</label>
+              <input type="text" id="fr-name" value="${room ? (room.name||'').replace(/"/g,'&quot;') : ''}" placeholder="例：葵、ホワイトルーム、宴会場Aなど">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>階数 *</label>
+                <input type="number" id="fr-floor" value="${room ? room.floor : (prefillFloor||'')}" placeholder="例：3" min="1" style="width:80px">
+              </div>
+              <div class="form-group">
+                <label>平米</label>
+                <input type="number" id="fr-sqm" value="${room ? (room.sqm||'') : ''}" placeholder="例：150" min="0" step="0.1" style="width:90px">
+              </div>
+              <div class="form-group">
+                <label>収容人数</label>
+                <input type="number" id="fr-capacity" value="${room ? (room.capacity||'') : ''}" placeholder="例：100" min="0" style="width:90px">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>備考</label>
+              <input type="text" id="fr-note" value="${room ? (room.note||'').replace(/"/g,'&quot;') : ''}" placeholder="例：プロジェクター有り、中華料理など">
+            </div>
+          </div>
+          <div class="modal-footer">
+            ${room ? `<button class="btn btn-danger" onclick="App.deleteFunctionRoomConfirm('${hotelId}','${roomId}')">削除</button>` : ''}
+            <button class="btn btn-secondary" onclick="App.closeFunctionRoomModal()">キャンセル</button>
+            <button class="btn btn-primary" onclick="App.saveFunctionRoomFromModal('${hotelId}','${roomId||''}')">保存</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function closeFunctionRoomModal() {
+    const m = document.getElementById('func-room-modal');
+    if (m) m.remove();
+  }
+
+  function saveFunctionRoomFromModal(hotelId, roomId) {
+    const name     = document.getElementById('fr-name').value.trim();
+    const floor    = parseInt(document.getElementById('fr-floor').value)    || 1;
+    const sqm      = parseFloat(document.getElementById('fr-sqm').value)    || 0;
+    const capacity = parseInt(document.getElementById('fr-capacity').value) || 0;
+    const note     = document.getElementById('fr-note').value;
+
+    if (!name) { alert('部屋名を入力してください'); return; }
+
+    DataManager.saveFunctionRoom(hotelId, { id: roomId || undefined, name, floor, sqm, capacity, note });
+    closeFunctionRoomModal();
+    _refreshFacilities(hotelId);
+    showToast('ファンクションルームを保存しました');
+  }
+
+  function deleteFunctionRoomConfirm(hotelId, roomId) {
+    if (!confirm('このファンクションルームを削除しますか？')) return;
+    DataManager.deleteFunctionRoom(hotelId, roomId);
+    closeFunctionRoomModal();
+    _refreshFacilities(hotelId);
+    showToast('削除しました', 'warning');
+  }
+
+  function showAddRoomAtFloorMenu(hotelId, floor) {
+    const html = `
+      <div class="modal-overlay" id="add-floor-menu" onclick="if(event.target===this)document.getElementById('add-floor-menu').remove()">
+        <div class="modal" style="max-width:280px">
+          <div class="modal-header">
+            <h3>${floor}F に追加</h3>
+            <button class="modal-close" onclick="document.getElementById('add-floor-menu').remove()">×</button>
+          </div>
+          <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-primary" onclick="document.getElementById('add-floor-menu').remove();App.showGuestRoomModal('${hotelId}',null,${floor})">
+              🛏 客室タイプを追加
+            </button>
+            <button class="btn btn-secondary" onclick="document.getElementById('add-floor-menu').remove();App.showFunctionRoomModal('${hotelId}',null,${floor})">
+              🎪 ファンクションルームを追加
+            </button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
   }
 
   // ── Soccer Config ─────────────────────────────────────────────────────────
@@ -1074,6 +1461,10 @@ const App = (() => {
     addMatch, deleteMatch, updateMatch, updateVenueHotel,
     showSportSettingsModal, closeSportSettingsModal, saveSportSettings,
     showHotelSettingsModal, closeHotelSettingsModal, saveHotelSettings,
+    switchFacilitiesTab, downloadRoomsTemplate, uploadRoomsFile,
+    showGuestRoomModal, closeGuestRoomModal, saveGuestRoomFromModal, deleteGuestRoomConfirm,
+    showFunctionRoomModal, closeFunctionRoomModal, saveFunctionRoomFromModal, deleteFunctionRoomConfirm,
+    showAddRoomAtFloorMenu,
     importMaster, importSchedules, importFull,
     exportMaster, exportSchedules, exportFull, exportScheduleTemplate,
     clearAllData, quickUpdateSport,

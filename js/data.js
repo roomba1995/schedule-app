@@ -143,6 +143,69 @@ const DataManager = (() => {
     return true;
   }
 
+  // ── Hotel Rooms ─────────────────────────────────────────────────────────
+  function getGuestRooms(hotelId) {
+    const hotel = getHotel(hotelId);
+    return hotel ? (hotel.guestRooms || []) : [];
+  }
+
+  function getFunctionRooms(hotelId) {
+    const hotel = getHotel(hotelId);
+    return hotel ? (hotel.functionRooms || []) : [];
+  }
+
+  function saveGuestRoom(hotelId, room) {
+    const idx = (master.hotels || []).findIndex(h => h.id === hotelId);
+    if (idx < 0) return null;
+    if (!master.hotels[idx].guestRooms) master.hotels[idx].guestRooms = [];
+    if (!room.id) {
+      room.id = 'gr_' + _genId();
+      master.hotels[idx].guestRooms.push(room);
+    } else {
+      const ri = master.hotels[idx].guestRooms.findIndex(r => r.id === room.id);
+      if (ri >= 0) master.hotels[idx].guestRooms[ri] = room;
+      else master.hotels[idx].guestRooms.push(room);
+    }
+    _saveMaster();
+    return room;
+  }
+
+  function deleteGuestRoom(hotelId, roomId) {
+    const idx = (master.hotels || []).findIndex(h => h.id === hotelId);
+    if (idx < 0) return false;
+    const ri = (master.hotels[idx].guestRooms || []).findIndex(r => r.id === roomId);
+    if (ri < 0) return false;
+    master.hotels[idx].guestRooms.splice(ri, 1);
+    _saveMaster();
+    return true;
+  }
+
+  function saveFunctionRoom(hotelId, room) {
+    const idx = (master.hotels || []).findIndex(h => h.id === hotelId);
+    if (idx < 0) return null;
+    if (!master.hotels[idx].functionRooms) master.hotels[idx].functionRooms = [];
+    if (!room.id) {
+      room.id = 'fr_' + _genId();
+      master.hotels[idx].functionRooms.push(room);
+    } else {
+      const ri = master.hotels[idx].functionRooms.findIndex(r => r.id === room.id);
+      if (ri >= 0) master.hotels[idx].functionRooms[ri] = room;
+      else master.hotels[idx].functionRooms.push(room);
+    }
+    _saveMaster();
+    return room;
+  }
+
+  function deleteFunctionRoom(hotelId, roomId) {
+    const idx = (master.hotels || []).findIndex(h => h.id === hotelId);
+    if (idx < 0) return false;
+    const ri = (master.hotels[idx].functionRooms || []).findIndex(r => r.id === roomId);
+    if (ri < 0) return false;
+    master.hotels[idx].functionRooms.splice(ri, 1);
+    _saveMaster();
+    return true;
+  }
+
   // Soccer groups & matches
   function getSoccerGroups() { return master.soccerGroups || []; }
   function getSoccerMatches() { return master.soccerMatches || []; }
@@ -516,6 +579,8 @@ const DataManager = (() => {
     importMasterJSON, exportMasterJSON,
     importSchedulesJSON, exportSchedulesJSON,
     exportFullJSON, importFullJSON,
+    getGuestRooms, saveGuestRoom, deleteGuestRoom,
+    getFunctionRooms, saveFunctionRoom, deleteFunctionRoom,
     importMasterXLSX, importSchedulesXLSX, importSchedulesCSV, importFullXLSX,
     clearAllData,
     getDatesInRange, formatDate, formatDateFull, getWeekday,

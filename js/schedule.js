@@ -13,6 +13,7 @@ const ScheduleGrid = (() => {
   const SLOTS_PER_HOUR = 2;    // 30-min slots
 
   let _sportId    = null;
+  let _hotelId    = null;      // hotel context for function room suggestions
   let _dates      = [];        // array of 'YYYY-MM-DD' strings
   let _container  = null;      // DOM element
   let _clipboard  = null;      // { events: [...], fromDate: '...' }
@@ -61,8 +62,9 @@ const ScheduleGrid = (() => {
   }
 
   // ── Public init ──────────────────────────────────────────────────────────
-  function init(containerId, sportId, startDate, endDate) {
+  function init(containerId, sportId, startDate, endDate, hotelId) {
     _sportId   = sportId;
+    _hotelId   = hotelId || null;
     _container = document.getElementById(containerId);
     if (!_container) return;
 
@@ -256,6 +258,17 @@ const ScheduleGrid = (() => {
               <button class="btn btn-xs btn-secondary" style="margin-left:6px"
                 onclick="document.getElementById('ev-color').value=''">カテゴリ色を使用</button>
             </div>
+            ${(() => {
+              const funcRooms = _hotelId ? DataManager.getFunctionRooms(_hotelId) : [];
+              if (funcRooms.length === 0) return '';
+              return `<div class="form-group">
+                <label>ファンクションルームから選択 <span style="font-size:11px;color:#7f8c8d;font-weight:normal">（選択で階数・場所を自動入力）</span></label>
+                <select id="ev-funcroom" onchange="ScheduleGrid._onFuncRoomSelect(this.value)">
+                  <option value="">-- 直接入力 --</option>
+                  ${funcRooms.map(fr => `<option value="${fr.id}">${fr.floor}F　${fr.name}${fr.sqm ? '（'+fr.sqm+'㎡）' : ''}</option>`).join('')}
+                </select>
+              </div>`;
+            })()}
             <div class="form-row">
               <div class="form-group">
                 <label>フロア数</label>
@@ -280,6 +293,17 @@ const ScheduleGrid = (() => {
       </div>`;
 
     document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function _onFuncRoomSelect(roomId) {
+    if (!roomId || !_hotelId) return;
+    const funcRooms = DataManager.getFunctionRooms(_hotelId);
+    const room = funcRooms.find(r => r.id === roomId);
+    if (!room) return;
+    const floorEl    = document.getElementById('ev-floor');
+    const locationEl = document.getElementById('ev-location');
+    if (floorEl)    floorEl.value    = room.floor || '';
+    if (locationEl) locationEl.value = room.name  || '';
   }
 
   function closeEventModal() {
@@ -738,6 +762,7 @@ const ScheduleGrid = (() => {
   return {
     init, render,
     showEventModal, closeEventModal, saveEventFromModal, confirmDeleteEvent,
+    _onFuncRoomSelect,
     copyDay, pasteDay, clearClipboard,
     saveDayAsTemplate, showSaveTemplateModal, closeSaveTemplateModal, _doSaveTemplate,
     showTemplatePanel, closeTemplatePanel, applyTemplate, deleteTemplate,
