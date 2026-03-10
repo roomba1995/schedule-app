@@ -17,6 +17,7 @@ const ScheduleGrid = (() => {
   let _container  = null;      // DOM element
   let _clipboard  = null;      // { events: [...], fromDate: '...' }
   let _drag       = null;      // drag state
+  let _resize     = null;      // resize state
 
   // ── Time helpers ─────────────────────────────────────────────────────────
   function timeToMinutes(t) {
@@ -195,6 +196,7 @@ const ScheduleGrid = (() => {
         <div class="event-title">${ev.title || ''}${hasPopup ? ' <span class="note-icon">💬</span>' : ''}</div>
         ${subInfo ? `<div style="font-size:9px;opacity:0.9;">${subInfo}</div>` : ''}
         ${notePopup}
+        <div class="event-resize-handle" data-resize="bottom"></div>
       </div>`;
   }
 
@@ -321,6 +323,45 @@ const ScheduleGrid = (() => {
     render();
   }
 
+  // ── Resize (bottom handle → end time, 15-min snap) ───────────────────────
+  function _onResizeMove(e) {
+    if (!_resize) return;
+    const grid = _container && _container.querySelector('.schedule-grid');
+    const col  = grid && grid.querySelector(`.date-column[data-date="${_resize.date}"]`);
+    if (!col) return;
+
+    const colRect  = col.getBoundingClientRect();
+    const relY     = e.clientY - colRect.top;
+    // 15-min snap: SLOT_HEIGHT/2 = 20px per 15 min
+    const snapPx   = SLOT_HEIGHT / 2;
+    const totalMins = START_HOUR * 60 + Math.round(relY / snapPx) * 15;
+    const minEnd    = _resize.startMins + 15;
+    const newEnd    = Math.max(minEnd, Math.min(totalMins, END_HOUR * 60));
+
+    _resize.targetEndMins = newEnd;
+    _resize.moved = true;
+
+    // Live visual feedback
+    const newHeight = durationToHeight(_resize.startMins, newEnd);
+    _resize.block.style.height = newHeight + 'px';
+    const timeEl = _resize.block.querySelector('.event-time');
+    if (timeEl) timeEl.textContent = `${_resize.ev.startTime}–${minutesToTime(newEnd)}`;
+  }
+
+  function _onResizeUp() {
+    document.removeEventListener('mousemove', _onResizeMove);
+    document.removeEventListener('mouseup',   _onResizeUp);
+    if (!_resize) return;
+
+    const { eventId, date, ev, moved, targetEndMins } = _resize;
+    _resize = null;
+
+    if (!moved || targetEndMins === timeToMinutes(ev.endTime)) return;
+
+    DataManager.saveEvent(_sportId, date, { ...ev, endTime: minutesToTime(targetEndMins) });
+    render();
+  }
+
   // ── Drag & Drop ──────────────────────────────────────────────────────────
   function _initDragDrop() {
     const grid = _container && _container.querySelector('.schedule-grid');
@@ -332,6 +373,31 @@ const ScheduleGrid = (() => {
   function _onGridMouseDown(e) {
     if (e.button !== 0) return;
     if (e.target.closest('.event-note-popup')) return;
+
+    // Resize handle takes priority over drag
+    const resizeHandle = e.target.closest('[data-resize]');
+    if (resizeHandle) {
+      const block = resizeHandle.closest('.event-block');
+      if (!block) return;
+      const eventId = block.dataset.eventId;
+      const date    = block.dataset.date;
+      if (!eventId || !date) return;
+      const ev = DataManager.getEvents(_sportId, date).find(x => x.id === eventId);
+      if (!ev) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _resize = {
+        eventId, date, ev, block,
+        startMins:    timeToMinutes(ev.startTime),
+        endMins:      timeToMinutes(ev.endTime),
+        targetEndMins: timeToMinutes(ev.endTime),
+        moved: false,
+      };
+      document.addEventListener('mousemove', _onResizeMove);
+      document.addEventListener('mouseup',   _onResizeUp);
+      return;
+    }
+
     const block = e.target.closest('.event-block');
     if (!block) return;
     const eventId = block.dataset.eventId;
