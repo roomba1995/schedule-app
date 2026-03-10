@@ -421,6 +421,7 @@ const ScheduleGrid = (() => {
       initY:      e.clientY,
       targetDate: date,
       targetMins: timeToMinutes(ev.startTime),
+      copyMode:   e.ctrlKey && e.shiftKey,
     };
 
     document.addEventListener('mousemove', _onDragMove);
@@ -441,13 +442,22 @@ const ScheduleGrid = (() => {
       ghost.style.cssText = `
         position:fixed;pointer-events:none;z-index:9999;
         width:${br.width}px;height:${br.height}px;
-        opacity:0.8;cursor:grabbing;
+        opacity:0.8;cursor:${_drag.copyMode ? 'copy' : 'grabbing'};
         box-shadow:0 6px 20px rgba(0,0,0,0.35);
         border-radius:6px;transition:none;
       `;
+      if (_drag.copyMode) {
+        // Show "+" badge on ghost to indicate copy mode
+        const badge = document.createElement('div');
+        badge.className = 'event-copy-badge';
+        badge.textContent = '＋';
+        ghost.appendChild(badge);
+      }
       document.body.appendChild(ghost);
       _drag.ghost = ghost;
-      _drag.origBlock.classList.add('event-dragging');
+      if (!_drag.copyMode) {
+        _drag.origBlock.classList.add('event-dragging');
+      }
     }
 
     // Move ghost (anchored to cursor offset inside original block)
@@ -481,7 +491,7 @@ const ScheduleGrid = (() => {
     if (!_drag) return;
 
     const { eventId, date: origDate, ev, durMins,
-            ghost, origBlock, moved, targetDate, targetMins } = _drag;
+            ghost, origBlock, moved, targetDate, targetMins, copyMode } = _drag;
     _drag = null;
 
     if (ghost) ghost.remove();
@@ -491,21 +501,28 @@ const ScheduleGrid = (() => {
     if (grid) grid.querySelectorAll('.date-column').forEach(c => c.classList.remove('drag-over'));
 
     if (!moved) {
-      // Treat as a regular click → open modal
-      showEventModal(eventId, origDate);
+      // No movement: regular click → open modal (copy mode click does nothing)
+      if (!copyMode) showEventModal(eventId, origDate);
       return;
     }
 
     const newStart = minutesToTime(targetMins);
     const newEnd   = minutesToTime(targetMins + durMins);
 
-    if (targetDate === origDate && newStart === ev.startTime) return; // no change
-
-    if (targetDate !== origDate) {
-      DataManager.deleteEvent(_sportId, origDate, eventId);
-      DataManager.saveEvent(_sportId, targetDate, { ...ev, startTime: newStart, endTime: newEnd });
+    if (copyMode) {
+      // Copy: save new event (no id → new id generated), original stays
+      const newEv = { ...ev, startTime: newStart, endTime: newEnd };
+      delete newEv.id;
+      DataManager.saveEvent(_sportId, targetDate, newEv);
     } else {
-      DataManager.saveEvent(_sportId, origDate, { ...ev, startTime: newStart, endTime: newEnd });
+      // Move: no-op if same position
+      if (targetDate === origDate && newStart === ev.startTime) return;
+      if (targetDate !== origDate) {
+        DataManager.deleteEvent(_sportId, origDate, eventId);
+        DataManager.saveEvent(_sportId, targetDate, { ...ev, startTime: newStart, endTime: newEnd });
+      } else {
+        DataManager.saveEvent(_sportId, origDate, { ...ev, startTime: newStart, endTime: newEnd });
+      }
     }
     render();
   }

@@ -412,6 +412,23 @@ select:focus, textarea:focus {
   background: rgba(0, 0, 0, 0.4);
 }
 
+/* Copy-mode badge shown on ghost */
+.event-copy-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: rgba(0, 0, 0, 0.65);
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
 /* Dragging state */
 .event-block.event-dragging {
   opacity: 0.25 !important;
