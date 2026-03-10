@@ -371,12 +371,24 @@ const DataManager = (() => {
     'カラー(省略可)':     'color',
   };
 
+  // Convert Excel time values (fraction of day) or strings to "HH:MM"
+  function _toTimeStr(v) {
+    if (typeof v === 'number') {
+      const mins = Math.round(v * 1440);
+      return `${String(Math.floor(mins / 60) % 24).padStart(2,'0')}:${String(mins % 60).padStart(2,'0')}`;
+    }
+    const s = String(v || '').trim();
+    return s.match(/^\d{1,2}:\d{2}/) ? s.slice(0,5).replace(/^(\d):/, '0$1:') : s;
+  }
+
   function _normalizeRow(row) {
     const out = {};
     for (const [k, v] of Object.entries(row)) {
       const mapped = _JA_TO_EN[k.trim()] || k;
       out[mapped] = v;
     }
+    if (out.startTime !== undefined) out.startTime = _toTimeStr(out.startTime);
+    if (out.endTime   !== undefined) out.endTime   = _toTimeStr(out.endTime);
     return out;
   }
 

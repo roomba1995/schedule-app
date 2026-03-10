@@ -448,6 +448,21 @@ const ExportManager = (() => {
     };
   }
 
+  // Force time columns (colStart=4, colEnd=5) to text format so Excel won't auto-convert
+  function _forceTimeCols(ws) {
+    if (!ws['!ref']) return;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let r = range.s.r + 1; r <= range.e.r; r++) {
+      for (const c of [4, 5]) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (ws[addr]) {
+          ws[addr].t = 's';
+          ws[addr].z = '@';
+        }
+      }
+    }
+  }
+
   function _schedColWidths() {
     return [
       { wch: 16 }, // 競技ID
@@ -529,6 +544,7 @@ const ExportManager = (() => {
     const empty = _toJaRow({ sportId:'', sportName:'', date:'', title:'', startTime:'', endTime:'', category:'', note:'', color:'' });
     const ws = XLSX.utils.json_to_sheet(rows.length ? rows.map(_toJaRow) : [empty]);
     ws['!cols'] = _schedColWidths();
+    _forceTimeCols(ws);
     XLSX.utils.book_append_sheet(wb, ws, 'スケジュール');
     _appendRefSheets(wb);
     XLSX.writeFile(wb, 'schedules.xlsx');
@@ -574,6 +590,7 @@ const ExportManager = (() => {
 
     const ws = XLSX.utils.json_to_sheet(rows.length ? rows.map(_toJaRow) : [_toJaRow({})]);
     ws['!cols'] = _schedColWidths();
+    _forceTimeCols(ws);
     XLSX.utils.book_append_sheet(wb, ws, 'スケジュール');
     _appendRefSheets(wb);
     XLSX.writeFile(wb, 'schedules_template.xlsx');
