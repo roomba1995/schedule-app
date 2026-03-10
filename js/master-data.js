@@ -24,7 +24,9 @@ const EMBEDDED_MASTER = {
     { "id": "shooting",       "name": "射撃",                        "shortName": "射撃",            "isSoccer": false, "color": "#7f8c8d", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "volleyball",     "name": "バレーボール",                 "shortName": "バレーボール",    "isSoccer": false, "color": "#d35400", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "weightlifting",  "name": "ウェイトリフティング",          "shortName": "ウェイトリフティング", "isSoccer": false, "color": "#2c3e50", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
-    { "id": "wrestling",      "name": "レスリング",                   "shortName": "レスリング",      "isSoccer": false, "color": "#d4ac0d", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" }
+    { "id": "wrestling",      "name": "レスリング",                   "shortName": "レスリング",      "isSoccer": false, "color": "#d4ac0d", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
+    { "id": "artistic_swimming", "name": "アーティスティックスイミング", "shortName": "アーティスティック", "isSoccer": false, "color": "#5dade2", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
+    { "id": "diving",         "name": "飛込",                         "shortName": "飛込",            "isSoccer": false, "color": "#48c9b0", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" }
   ],
   "hotels": [
     { "id": "hotel_iris_aichi",       "name": "アイリス愛知",                     "address": "", "tel": "", "sportIds": [], "color": "#e74c3c", "note": "" },
