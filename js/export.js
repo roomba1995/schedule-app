@@ -169,8 +169,9 @@ const ExportManager = (() => {
     const end    = sport.endDate   || dr.end;
     const dates  = DataManager.getDatesInRange(start, end);
 
-    const html = buildWordHTML(sport, dates);
-    downloadFile(html, `schedule_${sport.shortName || sportId}_${start}_${end}.doc`, 'application/msword');
+    const bodyHtml = buildWordHTML(sport, dates);
+    const fullHtml = wrapWordHTML(`${sport.name} スケジュール`, bodyHtml);
+    downloadFile(fullHtml, `schedule_${sport.shortName || sportId}_${start}_${end}.doc`, 'application/msword');
   }
 
   function exportHotelToWord(hotelId) {
@@ -195,17 +196,17 @@ const ExportManager = (() => {
     const TH = 'background:#2c3e50;color:white;padding:6px 8px;font-size:11pt;border:1px solid #2c3e50;text-align:center;';
     const TD = 'padding:6px 8px;font-size:10.5pt;border:1px solid #aaa;vertical-align:top;line-height:1.6;';
 
+    // Category color map
+    const cats = DataManager.getCategories();
+    const catMap = {};
+    cats.forEach(c => { catMap[c.id] = c; });
+
     // Resolve hotel name
     const hotels = DataManager.getHotelsForSport(sport.id);
     const hotelName = hotels.length > 0 ? hotels.map(h => h.name).join('、') : '';
 
     // Build rows per day
-    let tableRows = `
-      <tr>
-        <th style="${TH}width:90pt;">年月日</th>
-        <th style="${TH}width:80pt;">予定時間</th>
-        <th style="${TH}">行動予定</th>
-      </tr>`;
+    let tableRows = '';
 
     for (const date of dates) {
       const events = DataManager.getEvents(sport.id, date);
@@ -224,6 +225,12 @@ const ExportManager = (() => {
       }
 
       events.forEach((ev, i) => {
+        // Determine background color from event color or category color
+        const cat = catMap[ev.category];
+        const bgColor = ev.color || (cat ? cat.color : null);
+        const fgColor = bgColor ? (_lightOrDark(bgColor) === 'light' ? '#1a1a1a' : '#ffffff') : '';
+        const colorStyle = bgColor ? `background:${bgColor};color:${fgColor};` : '';
+
         const timeStr = `${ev.startTime}～${ev.endTime}`;
         const parts = [ev.title];
         if (ev.floor || ev.location) {
@@ -236,27 +243,39 @@ const ExportManager = (() => {
           tableRows += `
             <tr>
               <td rowspan="${events.length}" style="${TD}white-space:nowrap;">${dateLabel}</td>
-              <td style="${TD}white-space:nowrap;">${timeStr}</td>
-              <td style="${TD}">${activity}</td>
+              <td style="${TD}white-space:nowrap;${colorStyle}">${timeStr}</td>
+              <td style="${TD}${colorStyle}">${activity}</td>
             </tr>`;
         } else {
           tableRows += `
             <tr>
-              <td style="${TD}white-space:nowrap;">${timeStr}</td>
-              <td style="${TD}">${activity}</td>
+              <td style="${TD}white-space:nowrap;${colorStyle}">${timeStr}</td>
+              <td style="${TD}${colorStyle}">${activity}</td>
             </tr>`;
         }
       });
     }
 
-    const pb = pageBreak ? '<div style="page-break-before:always;"></div>' : '';
+    // Hard page break (mso-break-type ensures Word respects it)
+    const pb = pageBreak
+      ? '<div style="page-break-before:always;mso-break-type:page-break;">&nbsp;</div>'
+      : '';
     return `
       ${pb}
       <p style="text-align:center;font-size:16pt;font-weight:bold;margin:0 0 12pt;">行動計画表（ドラフト）</p>
       <p style="font-size:11pt;font-weight:bold;margin:0 0 4pt;">競技：${sport.name}</p>
       ${hotelName ? `<p style="font-size:11pt;font-weight:bold;margin:0 0 12pt;">宿泊施設：${hotelName}</p>` : '<p style="margin:0 0 12pt;"></p>'}
       <table style="border-collapse:collapse;width:100%;font-family:'Meiryo','Yu Gothic',sans-serif;">
-        ${tableRows}
+        <thead>
+          <tr>
+            <th style="${TH}width:90pt;">年月日</th>
+            <th style="${TH}width:80pt;">予定時間</th>
+            <th style="${TH}">行動予定</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
       </table>`;
   }
 
@@ -273,8 +292,9 @@ const ExportManager = (() => {
   <![endif]-->
   <style>
     @page { margin: 25.4mm; }
-    body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 11pt; margin: 25.4mm; }
-    table { border-collapse: collapse; }
+    body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 11pt; margin: 0; padding: 0; }
+    table { border-collapse: collapse; width: 100%; }
+    thead { display: table-header-group; }
     td, th { border: 1px solid #ccc; }
   </style>
 </head>
