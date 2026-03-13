@@ -29,10 +29,20 @@ const DataManager = (() => {
       // Merge new sports from EMBEDDED_MASTER that are not in saved master
       const existingIds = new Set((master.sports || []).map(s => s.id));
       const newSports = (EMBEDDED_MASTER.sports || []).filter(s => !existingIds.has(s.id));
+      let changed = newSports.length > 0;
       if (newSports.length > 0) {
         master.sports = (master.sports || []).concat(newSports);
-        _saveMaster();
       }
+      // Sync shortName/name changes from embedded master into saved data
+      (master.sports || []).forEach(s => {
+        const embedded = (EMBEDDED_MASTER.sports || []).find(e => e.id === s.id);
+        if (embedded && (s.shortName !== embedded.shortName || s.name !== embedded.name)) {
+          s.shortName = embedded.shortName;
+          s.name = embedded.name;
+          changed = true;
+        }
+      });
+      if (changed) _saveMaster();
     }
 
     // Load schedules
