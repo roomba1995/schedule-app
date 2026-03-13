@@ -1,0 +1,5 @@
+{
+  "mcpTimeout": 30000,
+  "mcpRetryCount": 3,
+  "mcpRetryDelay": 2000
+}
