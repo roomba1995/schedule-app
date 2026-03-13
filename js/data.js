@@ -42,6 +42,13 @@ const DataManager = (() => {
           changed = true;
         }
       });
+      // Hard override: ensure soccer_w shortName is always up to date
+      // (guards against browser-cached master-data.js having the old value)
+      const soccerSport = (master.sports || []).find(s => s.id === 'soccer_w');
+      if (soccerSport && soccerSport.shortName !== 'サッカー（女子）') {
+        soccerSport.shortName = 'サッカー（女子）';
+        changed = true;
+      }
       if (changed) _saveMaster();
     }
 
