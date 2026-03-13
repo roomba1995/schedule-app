@@ -8,7 +8,7 @@ const EMBEDDED_MASTER = {
   "lastModified": "2026-03-10",
   "dateRange": { "start": "2026-09-10", "end": "2026-10-07" },
   "sports": [
-    { "id": "soccer_w",       "name": "サッカー（女子）",            "shortName": "サッカー",        "isSoccer": true,  "color": "#e74c3c", "venueIds": ["venue_nagoya_port","venue_wave_kariya","venue_nagaragawa","venue_ecopa","venue_nagai"], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
+    { "id": "soccer_w",       "name": "サッカー（女子）",            "shortName": "サッカー（女子）",        "isSoccer": true,  "color": "#e74c3c", "venueIds": ["venue_nagoya_port","venue_wave_kariya","venue_nagaragawa","venue_ecopa","venue_nagai"], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "athletics",      "name": "陸上（TF）",                  "shortName": "陸上",            "isSoccer": false, "color": "#3498db", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "badminton",      "name": "バドミントン",                 "shortName": "バドミントン",    "isSoccer": false, "color": "#2ecc71", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "basketball_3x3", "name": "バスケットボール（3×3）",     "shortName": "バスケ3×3",      "isSoccer": false, "color": "#f39c12", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
