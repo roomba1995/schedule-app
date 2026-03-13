@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理ページ - ホテル滞在タイムスケジュール管理システム</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .admin-badge {
+      background: #e74c3c;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 6px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .color-preview {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 6px;
+      border: 1px solid rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+    .color-cell {
+      display: flex;
+      align-items: center;
+    }
+    .admin-content {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .main-tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 24px;
+      gap: 0;
+      background: var(--card-bg);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 0 4px;
+    }
+    .main-tab-btn {
+      padding: 12px 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.15s;
+    }
+    .main-tab-btn:hover { color: var(--text); }
+    .main-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+    .action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .action-bar h3 { font-size: 16px; font-weight: 700; }
+    input[type=color] {
+      width: 60px;
+      height: 36px;
+      padding: 2px 4px;
+      cursor: pointer;
+    }
+    .inline-form {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .inline-form .form-group { margin-bottom: 0; }
+    .inline-form .form-group label { white-space: nowrap; }
+    .back-link {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      transition: all 0.2s;
+    }
+    .back-link:hover { background: rgba(255,255,255,0.15); color: white; }
+    .input-narrow { width: 120px !important; }
+    .input-mid { width: 200px !important; }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .checkbox-label input[type=checkbox] {
+      width: auto;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- ── Header ── -->
+    <header>
+      <h1>🏨 スケジュール管理 <span class="admin-badge">Admin</span></h1>
+      <div class="header-spacer"></div>
+      <div class="header-actions">
+        <a href="index.html" class="back-link">← メインページへ</a>
+      </div>
+    </header>
+
+    <!-- ── Main Content ── -->
+    <div id="admin-app" style="flex:1;overflow-y:auto;">
+      <div class="admin-content">
+        <!-- Main tab navigation -->
+        <div class="main-tabs" id="main-tabs">
+          <button class="main-tab-btn active" onclick="AdminApp.switchMainTab('sports')">🏅 競技管理</button>
+          <button class="main-tab-btn" onclick="AdminApp.switchMainTab('hotels')">🏨 ホテル管理</button>
+          <button class="main-tab-btn" onclick="AdminApp.switchMainTab('venues')">📍 会場管理</button>
+          <button class="main-tab-btn" onclick="AdminApp.switchMainTab('categories')">🏷 カテゴリ管理</button>
+          <button class="main-tab-btn" onclick="AdminApp.switchMainTab('daterange')">📅 期間設定</button>
+        </div>
+
+        <!-- Tab Panels -->
+        <div id="tab-sports" class="admin-tab-panel"></div>
+        <div id="tab-hotels" class="admin-tab-panel" style="display:none"></div>
+        <div id="tab-venues" class="admin-tab-panel" style="display:none"></div>
+        <div id="tab-categories" class="admin-tab-panel" style="display:none"></div>
+        <div id="tab-daterange" class="admin-tab-panel" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal container -->
+  <div id="modal-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/master-data.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
