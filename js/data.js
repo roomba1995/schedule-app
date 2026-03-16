@@ -3,7 +3,7 @@
  * Handles loading, saving, importing, and exporting all application data.
  */
 const DataManager = (() => {
-  const STORAGE_KEY = 'hotelScheduleApp_v2';
+  const STORAGE_KEY = 'hotelScheduleApp_v1';
   const SCHEDULE_KEY = 'hotelScheduleApp_schedules_v1';
   const TEMPLATE_KEY = 'hotelScheduleApp_templates_v1';
 
