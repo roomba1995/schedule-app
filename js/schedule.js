@@ -203,8 +203,8 @@ const ScheduleGrid = (() => {
 
   // ── Event block ──────────────────────────────────────────────────────────
   function renderEventBlock(ev, date) {
-    const cat    = DataManager.getCategory(ev.category) || { color: '#7f8c8d' };
-    const color  = ev.color || cat.color;
+    const cat    = DataManager.getCategory(ev.category) || { color: '#e17055' };
+    const color  = cat.color;
     const sMin   = timeToMinutes(ev.startTime);
     const eMin   = timeToMinutes(ev.endTime);
     const top    = minutesToTop(sMin);
@@ -282,12 +282,7 @@ const ScheduleGrid = (() => {
               <label>カテゴリ</label>
               <select id="ev-category">${catOptions}</select>
             </div>
-            <div class="form-group">
-              <label>カラー（カテゴリ色を上書き）</label>
-              <input type="color" id="ev-color" value="${ev && ev.color ? ev.color : '#3498db'}" style="width:60px;height:36px;padding:2px;">
-              <button class="btn btn-xs btn-secondary" style="margin-left:6px"
-                onclick="document.getElementById('ev-color').value=''">カテゴリ色を使用</button>
-            </div>
+            <input type="hidden" id="ev-color" value="">
             ${(() => {
               const funcRooms = _hotelId ? DataManager.getFunctionRooms(_hotelId) : [];
               if (funcRooms.length === 0) return '';
@@ -366,7 +361,6 @@ const ScheduleGrid = (() => {
     const ev = {
       id: eventId || undefined,
       title, startTime, endTime, category,
-      color: color || undefined,
       floor: floorRaw ? Number(floorRaw) : undefined,
       location: location || undefined,
       note

@@ -21,9 +21,9 @@ const EMBEDDED_MASTER = {
     { "id": "boxing",         "name": "ボクシング",                   "shortName": "ボクシング",      "isSoccer": false, "color": "#922b21", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "canoe_kayak",    "name": "カヌーカヤック（スプリント）", "shortName": "カヌー",          "isSoccer": false, "color": "#16a085", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "judo",           "name": "柔道",                        "shortName": "柔道",            "isSoccer": false, "color": "#8e44ad", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
-    { "id": "shooting",       "name": "射撃",                        "shortName": "射撃",            "isSoccer": false, "color": "#7f8c8d", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
+    { "id": "shooting",       "name": "射撃",                        "shortName": "射撃",            "isSoccer": false, "color": "#e91e8c", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "volleyball",     "name": "バレーボール",                 "shortName": "バレーボール",    "isSoccer": false, "color": "#d35400", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
-    { "id": "weightlifting",  "name": "ウェイトリフティング",          "shortName": "ウェイトリフティング", "isSoccer": false, "color": "#2c3e50", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
+    { "id": "weightlifting",  "name": "ウェイトリフティング",          "shortName": "ウェイトリフティング", "isSoccer": false, "color": "#ff7043", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "wrestling",      "name": "レスリング",                   "shortName": "レスリング",      "isSoccer": false, "color": "#d4ac0d", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "artistic_swimming", "name": "アーティスティックスイミング", "shortName": "アーティスティック", "isSoccer": false, "color": "#5dade2", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" },
     { "id": "diving",         "name": "飛込",                         "shortName": "飛込",            "isSoccer": false, "color": "#48c9b0", "venueIds": [], "hotelIds": [], "startDate": "", "endDate": "", "note": "" }
@@ -47,15 +47,15 @@ const EMBEDDED_MASTER = {
   "soccerGroups": [],
   "soccerMatches": [],
   "eventCategories": [
-    { "id": "wakeup",      "name": "起床・就寝",          "color": "#95a5a6" },
+    { "id": "wakeup",      "name": "起床・就寝",          "color": "#fd79a8" },
     { "id": "meal",        "name": "食事",                "color": "#f39c12" },
     { "id": "training",    "name": "練習・トレーニング",    "color": "#3498db" },
     { "id": "competition", "name": "競技",                "color": "#e74c3c" },
     { "id": "transport",   "name": "移動・交通",           "color": "#9b59b6" },
     { "id": "meeting",     "name": "ミーティング",         "color": "#1abc9c" },
     { "id": "medical",     "name": "医療・ケア",           "color": "#27ae60" },
-    { "id": "rest",        "name": "休息・自由時間",       "color": "#bdc3c7" },
-    { "id": "checkin",     "name": "チェックイン/アウト",  "color": "#2c3e50" },
-    { "id": "other",       "name": "その他",              "color": "#7f8c8d" }
+    { "id": "rest",        "name": "休息・自由時間",       "color": "#a29bfe" },
+    { "id": "checkin",     "name": "チェックイン/アウト",  "color": "#00cec9" },
+    { "id": "other",       "name": "その他",              "color": "#e17055" }
   ]
 };
