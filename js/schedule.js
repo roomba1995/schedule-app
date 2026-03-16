@@ -817,14 +817,10 @@ const ScheduleGrid = (() => {
     App.showToast('滞在期間を更新しました');
   }
 
-  // ── Slot click: paste when clipboard active, otherwise open add-event modal ──
+  // ── Slot click: record target position; always open add-event modal ──
   function handleSlotClick(date, time) {
-    if (_clipboard) {
-      _targetDate = date;
-      _pasteToTargetDate();
-    } else {
-      showEventModal(null, date, time);
-    }
+    _targetDate = date;
+    showEventModal(null, date, time);
   }
 
   // ── Selection & keyboard shortcuts ──────────────────────────────────────
