@@ -1,721 +1,901 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Schedule App</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>スケジュール管理</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #f4f6f9;
-      --surface: #ffffff;
-      --primary: #4f6ef7;
-      --primary-hover: #3a57d4;
-      --danger: #e05c5c;
+      --primary: #3b5bdb;
       --border: #dde2ec;
+      --bg: #f4f6f9;
+      --surface: #fff;
       --text: #1e2532;
       --muted: #7a8499;
-      --event-bg: #e8ecff;
-      --event-border: #4f6ef7;
-      --radius: 10px;
+      --radius: 8px;
+      --col-time: 54px;
+      --col-date: 140px;
+      --row-hour: 60px;
     }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      font-size: 13px;
     }
 
-    /* ── Layout ── */
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 24px;
+    /* ── App Header ── */
+    .app-header {
+      background: #2c3e6b;
+      color: #fff;
+      height: 48px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      padding: 0 20px;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .app-title { font-size: 1rem; font-weight: 700; }
+
+    /* ── Page ── */
+    .page { padding: 16px 20px; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+      overflow: hidden;
     }
 
-    header h1 { font-size: 1.25rem; font-weight: 700; flex: 1; }
+    /* ── Sport Tags ── */
+    .sport-tags-row { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .sport-tag {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 0.15s;
+    }
+    .sport-tag:hover { opacity: 0.85; }
 
+    /* ── Section Header ── */
+    .section-header {
+      padding: 12px 16px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Sport Tabs ── */
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      padding: 0 8px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 10px 14px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      cursor: pointer;
+      color: var(--muted);
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.1s;
+    }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+    .tab-btn:hover { color: var(--text); }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: none; border: 1px solid var(--border); color: var(--text); }
+    .btn-danger { background: #e05c5c; color: #fff; }
+    .btn-secondary { background: #e9ecef; color: var(--text); }
+    .ml-auto { margin-left: auto; }
+
+    /* ── Legend ── */
+    .legend {
+      padding: 6px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 0.72rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Date Nav ── */
+    .date-nav {
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
     .nav-btn {
       background: none;
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 6px 14px;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
       cursor: pointer;
-      font-size: 0.875rem;
-      color: var(--text);
-      transition: background 0.15s;
+      font-family: inherit;
     }
     .nav-btn:hover { background: var(--bg); }
+    .date-range-text { font-size: 0.82rem; color: var(--muted); margin-left: 4px; }
 
-    .today-btn {
-      background: var(--primary);
-      color: #fff;
-      border-color: var(--primary);
+    /* ── Calendar Scroll ── */
+    .cal-scroll {
+      overflow: auto;
+      max-height: 620px;
     }
-    .today-btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-
-    .view-toggle {
-      display: flex;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .view-toggle button {
-      background: none;
-      border: none;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-size: 0.875rem;
-      color: var(--muted);
-      transition: background 0.15s, color 0.15s;
-    }
-    .view-toggle button.active {
-      background: var(--primary);
-      color: #fff;
+    .cal-table {
+      border-collapse: collapse;
+      table-layout: fixed;
     }
 
-    main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
-
-    .current-label {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: var(--text);
+    /* Sticky header */
+    .cal-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #fff;
+      border-bottom: 2px solid var(--border);
     }
-
-    /* ── Week Grid ── */
-    .week-grid {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
+    .time-th {
+      width: var(--col-time);
+      min-width: var(--col-time);
+      position: sticky;
+      left: 0;
+      z-index: 30;
     }
-
-    .week-header {
-      display: grid;
-      grid-template-columns: 60px repeat(7, 1fr);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .week-header .day-col {
-      padding: 10px 8px;
-      text-align: center;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--muted);
+    .date-th {
+      width: var(--col-date);
+      min-width: var(--col-date);
       border-left: 1px solid var(--border);
     }
-    .week-header .day-col:first-child { border-left: none; }
-    .week-header .day-col .day-num {
-      display: inline-block;
-      width: 28px;
-      height: 28px;
-      line-height: 28px;
-      border-radius: 50%;
-      font-size: 1rem;
+
+    /* Date header content */
+    .date-th-inner {
+      padding: 6px 4px;
+      text-align: center;
+    }
+    .date-th-label {
+      font-size: 0.9rem;
       font-weight: 700;
-      color: var(--text);
-      margin-top: 2px;
-    }
-    .week-header .day-col.today .day-num {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .week-body {
-      display: grid;
-      grid-template-columns: 60px repeat(7, 1fr);
-      overflow-y: auto;
-      max-height: 640px;
-    }
-
-    .time-gutter {
-      display: flex;
-      flex-direction: column;
-    }
-    .time-label {
-      height: 60px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: flex-end;
-      padding: 2px 8px 0 0;
-      font-size: 0.7rem;
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-
-    .day-column {
-      border-left: 1px solid var(--border);
-      position: relative;
-    }
-
-    .hour-cell {
-      height: 60px;
-      border-bottom: 1px solid var(--border);
-      position: relative;
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-    .hour-cell:hover { background: #f0f3ff; }
-    .hour-cell:last-child { border-bottom: none; }
-
-    /* ── Events ── */
-    .event {
-      position: absolute;
-      left: 3px;
-      right: 3px;
-      background: var(--event-bg);
-      border-left: 3px solid var(--event-border);
-      border-radius: 4px;
-      padding: 3px 6px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--primary);
-      overflow: hidden;
-      cursor: pointer;
-      z-index: 1;
-      transition: filter 0.15s;
-    }
-    .event:hover { filter: brightness(0.95); }
-    .event .event-time { font-weight: 400; color: var(--muted); font-size: 0.7rem; }
-
-    /* ── Day View ── */
-    .day-view-body {
-      display: grid;
-      grid-template-columns: 60px 1fr;
-    }
-
-    /* ── Month View ── */
-    .month-grid {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .month-day-headers {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      border-bottom: 1px solid var(--border);
-    }
-    .month-day-header {
-      padding: 8px;
-      text-align: center;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--muted);
-    }
-    .month-cells {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-    }
-    .month-cell {
-      border-right: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      min-height: 100px;
-      padding: 6px;
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-    .month-cell:hover { background: #f8f9ff; }
-    .month-cell:nth-child(7n) { border-right: none; }
-    .month-cell.outside { background: #fafbfc; }
-    .month-cell.outside .month-cell-num { color: #c0c6d4; }
-    .month-cell-num {
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-    }
-    .month-cell.today .month-cell-num {
-      background: var(--primary);
-      color: #fff;
-    }
-    .month-event {
-      background: var(--event-bg);
-      border-left: 3px solid var(--event-border);
-      border-radius: 3px;
-      padding: 2px 5px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: var(--primary);
       margin-bottom: 3px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      cursor: pointer;
     }
+    .date-th-label.weekend-sun { color: #c62828; }
+    .date-th-label.weekend-sat { color: #1565c0; }
+    .date-th-label.is-today { color: var(--primary); }
+
+    .copy-save-btns {
+      display: flex;
+      gap: 3px;
+      justify-content: center;
+      margin-bottom: 4px;
+    }
+    .btn-xs {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 7px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-xs:hover { background: var(--bg); }
+
+    /* ── Day Category ── */
+    .day-cat-container { padding: 0 2px 4px; }
+    .day-cat-sel {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 4px;
+      font-size: 0.7rem;
+      font-family: inherit;
+      background: #fff;
+      cursor: pointer;
+      color: var(--text);
+      transition: background 0.1s, color 0.1s;
+    }
+
+    /* ── Body Cells ── */
+    .time-td {
+      width: var(--col-time);
+      height: var(--row-hour);
+      text-align: right;
+      padding: 2px 6px 0;
+      font-size: 0.68rem;
+      color: var(--muted);
+      vertical-align: top;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      background: #fff;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+    }
+    .event-td {
+      width: var(--col-date);
+      height: var(--row-hour);
+      border-left: 1px solid var(--border);
+      border-bottom: 1px solid #eee;
+      position: relative;
+      cursor: pointer;
+      vertical-align: top;
+      overflow: visible;
+    }
+    .event-td:hover { background: #f8f9ff; }
+
+    /* ── Event Blocks ── */
+    .evt {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      overflow: hidden;
+      cursor: pointer;
+      z-index: 2;
+      border-left: 3px solid;
+      line-height: 1.35;
+    }
+    .evt:hover { filter: brightness(0.93); }
+    .evt-sub { font-weight: 400; font-size: 0.65rem; opacity: 0.8; }
 
     /* ── Modal ── */
-    .modal-overlay {
+    .overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.35);
-      z-index: 100;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
       align-items: center;
       justify-content: center;
     }
-    .modal-overlay.open { display: flex; }
-
+    .overlay.open { display: flex; }
     .modal {
-      background: var(--surface);
+      background: #fff;
       border-radius: var(--radius);
-      padding: 28px;
+      padding: 24px;
       width: 100%;
       max-width: 420px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      max-height: 92vh;
+      overflow-y: auto;
     }
-    .modal h2 { font-size: 1.1rem; margin-bottom: 20px; }
-
-    .form-group { margin-bottom: 16px; }
-    .form-group label {
+    .modal h2 { font-size: 1rem; margin-bottom: 16px; }
+    .fg { margin-bottom: 12px; }
+    .fg label {
       display: block;
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 600;
       color: var(--muted);
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .form-group input, .form-group textarea, .form-group select {
+    .fg input, .fg select, .fg textarea {
       width: 100%;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 9px 12px;
-      font-size: 0.9rem;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 0.85rem;
       font-family: inherit;
-      color: var(--text);
       outline: none;
-      transition: border-color 0.15s;
+      color: var(--text);
     }
-    .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
-      border-color: var(--primary);
-    }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 24px;
-      justify-content: flex-end;
-    }
-    .btn {
-      padding: 9px 20px;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: background 0.15s, opacity 0.15s;
-    }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .btn-secondary { background: var(--border); color: var(--text); }
-    .btn-secondary:hover { opacity: 0.8; }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .btn-danger:hover { opacity: 0.85; }
-
-    /* ── FAB ── */
-    .fab {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      background: var(--primary);
-      color: #fff;
-      font-size: 1.6rem;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 16px rgba(79,110,247,0.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s, transform 0.15s;
-      z-index: 50;
-    }
-    .fab:hover { background: var(--primary-hover); transform: scale(1.07); }
-
-    .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
-    .swatch {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: transform 0.1s, border-color 0.1s;
-    }
-    .swatch.selected { border-color: var(--text); transform: scale(1.15); }
+    .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: var(--primary); }
+    .fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>Schedule</h1>
-  <button class="nav-btn today-btn" onclick="goToday()">Today</button>
-  <button class="nav-btn" onclick="navigate(-1)">&#8592;</button>
-  <button class="nav-btn" onclick="navigate(1)">&#8594;</button>
-  <div class="view-toggle">
-    <button id="btn-day" onclick="setView('day')">Day</button>
-    <button id="btn-week" onclick="setView('week')" class="active">Week</button>
-    <button id="btn-month" onclick="setView('month')">Month</button>
+<div class="app-header">
+  <span class="app-title">スケジュール管理</span>
+</div>
+
+<div class="page">
+  <!-- Sport Tags Overview -->
+  <div class="card">
+    <div style="padding: 10px 16px; border-bottom: 1px solid var(--border)">
+      <div style="font-size:0.75rem; color:var(--muted); margin-bottom:8px">担当競技</div>
+      <div id="sport-tags-container" class="sport-tags-row" style="padding:0"></div>
+    </div>
   </div>
-</header>
 
-<main>
-  <div class="current-label" id="current-label"></div>
-  <div id="calendar-container"></div>
-</main>
-
-<button class="fab" onclick="openModal()" title="Add event">+</button>
+  <!-- Timetable -->
+  <div class="card">
+    <div class="section-header">📅 タイムスケジュール</div>
+    <div class="tab-bar" id="sport-tabs"></div>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openAddModal()">＋ イベント追加</button>
+      <button class="btn btn-outline" onclick="exportWord()" style="margin-left:auto">📄 Word出力</button>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="date-nav">
+      <button class="nav-btn" onclick="shiftDates(-7)">◀ 前週</button>
+      <button class="nav-btn" onclick="shiftDates(-1)">◀</button>
+      <button class="nav-btn" onclick="gotoToday()">今日</button>
+      <button class="nav-btn" onclick="shiftDates(1)">▶</button>
+      <button class="nav-btn" onclick="shiftDates(7)">翌週 ▶</button>
+      <span class="date-range-text" id="date-range-text"></span>
+    </div>
+    <div class="cal-scroll">
+      <table class="cal-table" id="cal-table"></table>
+    </div>
+  </div>
+</div>
 
 <!-- Event Modal -->
-<div class="modal-overlay" id="modal-overlay">
+<div class="overlay" id="event-overlay">
   <div class="modal">
-    <h2 id="modal-title">New Event</h2>
-    <div class="form-group">
-      <label>Title</label>
-      <input type="text" id="f-title" placeholder="Event title" />
+    <h2 id="modal-title">イベント追加</h2>
+    <div class="fg">
+      <label>タイトル</label>
+      <input type="text" id="f-title" placeholder="タイトルを入力"/>
     </div>
-    <div class="form-group">
-      <label>Date</label>
-      <input type="date" id="f-date" />
+    <div class="fg">
+      <label>日付</label>
+      <input type="date" id="f-date"/>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Start time</label>
-        <input type="time" id="f-start" value="09:00" />
+    <div class="fg-row">
+      <div class="fg">
+        <label>開始時刻</label>
+        <input type="time" id="f-start" value="09:00"/>
       </div>
-      <div class="form-group">
-        <label>End time</label>
-        <input type="time" id="f-end" value="10:00" />
+      <div class="fg">
+        <label>終了時刻</label>
+        <input type="time" id="f-end" value="10:00"/>
       </div>
     </div>
-    <div class="form-group">
-      <label>Note</label>
-      <textarea id="f-note" rows="2" placeholder="Optional note"></textarea>
+    <div class="fg">
+      <label>カテゴリ</label>
+      <select id="f-cat"></select>
     </div>
-    <div class="form-group">
-      <label>Color</label>
-      <div class="color-swatches" id="color-swatches"></div>
+    <div class="fg">
+      <label>場所</label>
+      <input type="text" id="f-location" placeholder="場所（任意）"/>
+    </div>
+    <div class="fg">
+      <label>メモ</label>
+      <textarea id="f-note" rows="2" placeholder="メモ（任意）"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-danger" id="btn-delete" style="display:none; margin-right:auto" onclick="deleteEvent()">Delete</button>
-      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+      <button class="btn btn-danger" id="btn-delete" style="display:none; margin-right:auto" onclick="deleteEvt()">削除</button>
+      <button class="btn btn-secondary" onclick="closeModal('event-overlay')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveEvt()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Copy Modal -->
+<div class="overlay" id="copy-overlay">
+  <div class="modal" style="max-width:340px">
+    <h2>日程をコピー</h2>
+    <p style="margin-bottom:14px; font-size:0.85rem; color:var(--muted)">
+      <b id="copy-from-lbl"></b> のイベントと日程区分を別の日にコピーします
+    </p>
+    <div class="fg">
+      <label>コピー先の日付</label>
+      <input type="date" id="copy-to"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('copy-overlay')">キャンセル</button>
+      <button class="btn btn-primary" onclick="doCopy()">コピー</button>
     </div>
   </div>
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
-const COLORS = [
-  { bg: '#e8ecff', border: '#4f6ef7' },
-  { bg: '#fde8e8', border: '#e05c5c' },
-  { bg: '#e8fde8', border: '#3cb371' },
-  { bg: '#fff6e0', border: '#f5a623' },
-  { bg: '#f3e8ff', border: '#9b59b6' },
-  { bg: '#e8f8ff', border: '#2196f3' },
+// ── Constants ──────────────────────────────────────────────────────────────
+const SPORTS = [
+  { id: 'athletics',     name: '陸上',        color: '#e74c3c' },
+  { id: 'badminton',     name: 'バドミントン', color: '#3498db' },
+  { id: 'basketball3x3', name: 'バスケ3×3',   color: '#e67e22' },
+  { id: 'gymnastics',    name: '体操',        color: '#9b59b6' },
+  { id: 'handball',      name: 'ハンドボール', color: '#1abc9c' },
+  { id: 'karate',        name: '空手',        color: '#c0392b' },
+  { id: 'tabletennis',   name: '卓球',        color: '#f39c12' },
+  { id: 'softtennis',    name: 'ソフトテニス', color: '#27ae60' },
 ];
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['January','February','March','April','May','June',
-                     'July','August','September','October','November','December'];
+const EVENT_CATS = [
+  { id: 'sleep',      name: '起床・就寝',          bg: '#f5f5f5', color: '#757575' },
+  { id: 'meal',       name: '食事',                bg: '#fff8e1', color: '#f57c00' },
+  { id: 'practice',   name: '練習・トレーニング',   bg: '#e8eaf6', color: '#3949ab' },
+  { id: 'compete',    name: '競技',                bg: '#ffebee', color: '#c62828' },
+  { id: 'travel',     name: '移動・交通',           bg: '#e3f2fd', color: '#1565c0' },
+  { id: 'meeting',    name: 'ミーティング',         bg: '#e0f2f1', color: '#00695c' },
+  { id: 'medical',    name: '医療・ケア',           bg: '#e8f5e9', color: '#2e7d32' },
+  { id: 'rest',       name: '休息・自由時間',       bg: '#fafafa', color: '#9e9e9e' },
+  { id: 'checkinout', name: 'チェックイン/アウト',  bg: '#eceff1', color: '#37474f' },
+  { id: 'other',      name: 'その他',              bg: '#f9f9f9', color: '#9e9e9e' },
+];
 
-let currentView = 'week';
-let anchor = new Date();         // reference date for navigation
-anchor.setHours(0,0,0,0);
+// 日程区分
+const DAY_CATS = ['', 'チェックイン日', '練習日', '競技日', '滞在日', 'チェックアウト日'];
+const DAY_CAT_STYLES = {
+  'チェックイン日':  { bg: '#e8f5e9', color: '#2e7d32', border: '#2e7d32' },
+  '練習日':          { bg: '#e3f2fd', color: '#1565c0', border: '#1565c0' },
+  '競技日':          { bg: '#ffebee', color: '#c62828', border: '#c62828' },
+  '滞在日':          { bg: '#fff8e1', color: '#e65100', border: '#e65100' },
+  'チェックアウト日': { bg: '#f3e5f5', color: '#6a1b9a', border: '#6a1b9a' },
+};
 
-let events = loadEvents();
-let editingId = null;
-let selectedColor = 0;
+const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+const HOUR_START = 6;
+const HOUR_END   = 24;
+const DISPLAY_DAYS = 14;
+const ROW_PX = 60;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let currentSport = SPORTS[0].id;
+
+// Default: start from Monday of current week
+let rangeStart = (() => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return d;
+})();
+
+// data[sportId][dateStr] = { events: [...], dayCat: '' }
+let data = (() => {
+  try { return JSON.parse(localStorage.getItem('sched_v3') || '{}'); }
+  catch { return {}; }
+})();
+
+let editingEvtId   = null;
+let editingEvtDate = null;
+let copyFromDate   = null;
 
 // ── Persistence ────────────────────────────────────────────────────────────
-function loadEvents() {
-  try { return JSON.parse(localStorage.getItem('schedule_events') || '[]'); }
-  catch { return []; }
+function persist() {
+  localStorage.setItem('sched_v3', JSON.stringify(data));
 }
-function saveEvents() {
-  localStorage.setItem('schedule_events', JSON.stringify(events));
+
+function getDateData(sportId, dateStr) {
+  if (!data[sportId]) data[sportId] = {};
+  if (!data[sportId][dateStr]) data[sportId][dateStr] = { events: [], dayCat: '' };
+  return data[sportId][dateStr];
+}
+
+function getEvents(sportId, dateStr) {
+  return (getDateData(sportId, dateStr).events || [])
+    .slice()
+    .sort((a, b) => a.start.localeCompare(b.start));
+}
+
+function getDayCat(sportId, dateStr) {
+  return ((data[sportId] || {})[dateStr] || {}).dayCat || '';
+}
+
+// ── Day Category ────────────────────────────────────────────────────────────
+function setDayCat(sportId, dateStr, cat) {
+  getDateData(sportId, dateStr).dayCat = cat;
+  persist();
+  applyDayCatStyle(dateStr, cat);
+}
+
+function applyDayCatStyle(dateStr, cat) {
+  const sel = document.getElementById('daycat-' + dateStr);
+  if (!sel) return;
+  const s = DAY_CAT_STYLES[cat];
+  if (s) {
+    sel.style.background   = s.bg;
+    sel.style.color        = s.color;
+    sel.style.borderColor  = s.border;
+    sel.style.fontWeight   = '700';
+  } else {
+    sel.style.background   = '';
+    sel.style.color        = '';
+    sel.style.borderColor  = '';
+    sel.style.fontWeight   = '';
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-function todayStr() { const t = new Date(); t.setHours(0,0,0,0); return isoDate(t); }
-
-function timeToMinutes(t) {
-  const [h,m] = t.split(':').map(Number);
+function todayStr() {
+  const t = new Date(); t.setHours(0,0,0,0); return isoDate(t);
+}
+function toMins(t) {
+  const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
 }
-function minutesToTime(m) {
-  return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-function fmt12(t) {
-  let [h, m] = t.split(':').map(Number);
-  const ampm = h < 12 ? 'am' : 'pm';
-  h = h % 12 || 12;
-  return `${h}:${String(m).padStart(2,'0')}${ampm}`;
-}
-
-function weekStart(d) {
-  const s = new Date(d);
-  s.setDate(s.getDate() - s.getDay());
-  return s;
-}
-
-function eventsForDate(dateStr) {
-  return events.filter(e => e.date === dateStr)
-               .sort((a,b) => a.start.localeCompare(b.start));
+function getDateRange() {
+  const arr = [];
+  for (let i = 0; i < DISPLAY_DAYS; i++) {
+    const d = new Date(rangeStart);
+    d.setDate(rangeStart.getDate() + i);
+    arr.push(d);
+  }
+  return arr;
 }
 
 // ── Navigation ─────────────────────────────────────────────────────────────
-function navigate(dir) {
-  if (currentView === 'day')   anchor.setDate(anchor.getDate() + dir);
-  if (currentView === 'week')  anchor.setDate(anchor.getDate() + dir * 7);
-  if (currentView === 'month') anchor.setMonth(anchor.getMonth() + dir);
-  render();
+function shiftDates(n) {
+  rangeStart.setDate(rangeStart.getDate() + n);
+  renderCalendar();
 }
-function goToday() {
-  anchor = new Date(); anchor.setHours(0,0,0,0);
-  render();
+function gotoToday() {
+  const d = new Date(); d.setHours(0,0,0,0);
+  const dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  rangeStart = d;
+  renderCalendar();
 }
-function setView(v) {
-  currentView = v;
-  ['day','week','month'].forEach(n => {
-    document.getElementById('btn-'+n).classList.toggle('active', n === v);
+function switchSport(sportId) {
+  currentSport = sportId;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.sport === sportId);
   });
-  render();
+  renderCalendar();
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────
-function render() {
-  if (currentView === 'week')  renderWeek();
-  else if (currentView === 'day')  renderDay();
-  else renderMonth();
+function renderAll() {
+  renderSportTags();
+  renderSportTabs();
+  renderLegend();
+  renderCalendar();
 }
 
-function renderWeek() {
-  const ws = weekStart(anchor);
-  const days = Array.from({length:7}, (_,i) => {
-    const d = new Date(ws); d.setDate(ws.getDate()+i); return d;
-  });
-  const label = `${MONTH_NAMES[ws.getMonth()]} ${ws.getFullYear()}`;
-  document.getElementById('current-label').textContent = label;
-
-  const header = `
-    <div class="week-grid">
-      <div class="week-header">
-        <div class="day-col"></div>
-        ${days.map(d => `
-          <div class="day-col ${isoDate(d)===todayStr()?'today':''}">
-            <div>${DAY_NAMES[d.getDay()]}</div>
-            <div class="day-num">${d.getDate()}</div>
-          </div>`).join('')}
-      </div>
-      <div class="week-body">
-        <div class="time-gutter">
-          ${HOURS.map(h=>`<div class="time-label">${h===0?'':h<12?h+'am':h===12?'12pm':(h-12)+'pm'}</div>`).join('')}
-        </div>
-        ${days.map(d => renderDayColumn(d)).join('')}
-      </div>
-    </div>`;
-  document.getElementById('calendar-container').innerHTML = header;
+function renderSportTags() {
+  document.getElementById('sport-tags-container').innerHTML = SPORTS.map(s =>
+    `<span class="sport-tag" style="background:${s.color}" onclick="switchSport('${s.id}')">${s.name}</span>`
+  ).join('');
 }
 
-function renderDay() {
-  document.getElementById('current-label').textContent =
-    `${DAY_NAMES[anchor.getDay()]}, ${MONTH_NAMES[anchor.getMonth()]} ${anchor.getDate()}, ${anchor.getFullYear()}`;
-
-  const body = `
-    <div class="week-grid">
-      <div class="week-header">
-        <div class="day-col"></div>
-        <div class="day-col ${isoDate(anchor)===todayStr()?'today':''}" style="grid-column: span 1">
-          <div>${DAY_NAMES[anchor.getDay()]}</div>
-          <div class="day-num">${anchor.getDate()}</div>
-        </div>
-      </div>
-      <div class="week-body day-view-body">
-        <div class="time-gutter">
-          ${HOURS.map(h=>`<div class="time-label">${h===0?'':h<12?h+'am':h===12?'12pm':(h-12)+'pm'}</div>`).join('')}
-        </div>
-        ${renderDayColumn(anchor)}
-      </div>
-    </div>`;
-  document.getElementById('calendar-container').innerHTML = body;
+function renderSportTabs() {
+  document.getElementById('sport-tabs').innerHTML = SPORTS.map(s =>
+    `<button class="tab-btn ${s.id === currentSport ? 'active' : ''}" data-sport="${s.id}" onclick="switchSport('${s.id}')">${s.name}</button>`
+  ).join('');
 }
 
-function renderDayColumn(d) {
-  const dateStr = isoDate(d);
-  const dayEvents = eventsForDate(dateStr);
+function renderLegend() {
+  document.getElementById('legend').innerHTML = EVENT_CATS.map(c =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${c.color}"></div><span>${c.name}</span></div>`
+  ).join('');
+}
 
-  const cells = HOURS.map(h => `
-    <div class="hour-cell" onclick="openModal('${dateStr}', ${h})"></div>
-  `).join('');
+function renderCalendar() {
+  const dates  = getDateRange();
+  const today  = todayStr();
+  const first  = dates[0];
+  const last   = dates[dates.length - 1];
 
-  const eventEls = dayEvents.map(ev => {
-    const top = (timeToMinutes(ev.start) / 60) * 60;
-    const height = Math.max(((timeToMinutes(ev.end) - timeToMinutes(ev.start)) / 60) * 60, 18);
-    const c = COLORS[ev.color ?? 0];
-    return `<div class="event" style="top:${top}px;height:${height}px;background:${c.bg};border-left-color:${c.border};color:${c.border}"
-              onclick="event.stopPropagation();editEvent('${ev.id}')">
-              <div>${escHtml(ev.title)}</div>
-              <div class="event-time">${fmt12(ev.start)} – ${fmt12(ev.end)}</div>
-            </div>`;
+  document.getElementById('date-range-text').textContent =
+    `${first.getMonth()+1}/${first.getDate()} 〜 ${last.getMonth()+1}/${last.getDate()}`;
+
+  // ── Header row ──
+  const headerCols = dates.map(d => {
+    const ds  = isoDate(d);
+    const dow = d.getDay();
+    const cat = getDayCat(currentSport, ds);
+    const cs  = DAY_CAT_STYLES[cat] || {};
+
+    let lblCls = 'date-th-label';
+    if (ds === today)  lblCls += ' is-today';
+    else if (dow === 0) lblCls += ' weekend-sun';
+    else if (dow === 6) lblCls += ' weekend-sat';
+
+    const selStyle = cat
+      ? `background:${cs.bg};color:${cs.color};border-color:${cs.border};font-weight:700`
+      : '';
+
+    return `<th class="date-th">
+      <div class="date-th-inner">
+        <div class="${lblCls}">${d.getMonth()+1}/${d.getDate()}(${DAY_NAMES[dow]})</div>
+        <div class="copy-save-btns">
+          <button class="btn-xs" onclick="openCopyModal('${ds}')">コピー</button>
+          <button class="btn-xs" onclick="persist()">保存</button>
+        </div>
+        <div class="day-cat-container">
+          <select id="daycat-${ds}" class="day-cat-sel" style="${selStyle}"
+                  onchange="setDayCat('${currentSport}','${ds}',this.value)">
+            ${DAY_CATS.map(c => `<option value="${c}" ${c === cat ? 'selected' : ''}>${c || '-- 区分 --'}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </th>`;
   }).join('');
 
-  return `<div class="day-column" style="position:relative">${cells}${eventEls}</div>`;
-}
+  // ── Body rows (one per hour) ──
+  let bodyRows = '';
+  for (let h = HOUR_START; h < HOUR_END; h++) {
+    const timeLbl = `${String(h).padStart(2,'0')}:00`;
+    const dateCells = dates.map(d => {
+      const ds   = isoDate(d);
+      const evts = getEvents(currentSport, ds).filter(ev => Math.floor(toMins(ev.start) / 60) === h);
 
-function renderMonth() {
-  const y = anchor.getFullYear(), m = anchor.getMonth();
-  document.getElementById('current-label').textContent = `${MONTH_NAMES[m]} ${y}`;
+      const evHtml = evts.map(ev => {
+        const cat    = EVENT_CATS.find(c => c.id === ev.catId) || EVENT_CATS[EVENT_CATS.length - 1];
+        const startM = toMins(ev.start);
+        const endM   = toMins(ev.end);
+        const top    = ((startM % 60) / 60) * ROW_PX;
+        const height = Math.max(((endM - startM) / 60) * ROW_PX, 18);
+        const loc    = ev.location ? `<span class="evt-sub"> ${escHtml(ev.location)}</span>` : '';
 
-  const first = new Date(y, m, 1);
-  const last  = new Date(y, m+1, 0);
-  const startOffset = first.getDay();
-  const totalCells = Math.ceil((startOffset + last.getDate()) / 7) * 7;
+        return `<div class="evt"
+          style="top:${top}px;height:${height}px;background:${cat.bg};border-left-color:${cat.color};color:${cat.color}"
+          onclick="event.stopPropagation();openEditModal('${ev.id}','${ds}')">
+          <div>${escHtml(ev.title)}${loc}</div>
+          <div class="evt-sub">${ev.start}〜${ev.end}</div>
+        </div>`;
+      }).join('');
 
-  let cells = '';
-  for (let i = 0; i < totalCells; i++) {
-    const cellDate = new Date(y, m, i - startOffset + 1);
-    const dateStr = isoDate(cellDate);
-    const outside = cellDate.getMonth() !== m;
-    const isToday = dateStr === todayStr();
-    const dayEvs = eventsForDate(dateStr);
+      return `<td class="event-td" onclick="openAddModal('${ds}',${h})">${evHtml}</td>`;
+    }).join('');
 
-    const evHtml = dayEvs.slice(0,3).map(ev => {
-      const c = COLORS[ev.color ?? 0];
-      return `<div class="month-event" style="background:${c.bg};border-left-color:${c.border};color:${c.border}"
-                onclick="event.stopPropagation();editEvent('${ev.id}')">${escHtml(ev.title)}</div>`;
-    }).join('') + (dayEvs.length > 3 ? `<div style="font-size:0.7rem;color:var(--muted)">+${dayEvs.length-3} more</div>` : '');
-
-    cells += `<div class="month-cell ${outside?'outside':''} ${isToday?'today':''}"
-                onclick="openModal('${dateStr}')">
-                <div class="month-cell-num">${cellDate.getDate()}</div>
-                ${evHtml}
-              </div>`;
+    bodyRows += `<tr>
+      <td class="time-td">${timeLbl}</td>
+      ${dateCells}
+    </tr>`;
   }
 
-  document.getElementById('calendar-container').innerHTML = `
-    <div class="month-grid">
-      <div class="month-day-headers">${DAY_NAMES.map(d=>`<div class="month-day-header">${d}</div>`).join('')}</div>
-      <div class="month-cells">${cells}</div>
-    </div>`;
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  document.getElementById('cal-table').innerHTML =
+    `<thead><tr><th class="time-th"></th>${headerCols}</tr></thead><tbody>${bodyRows}</tbody>`;
 }
 
 // ── Modal ──────────────────────────────────────────────────────────────────
-function buildSwatches() {
-  const container = document.getElementById('color-swatches');
-  container.innerHTML = COLORS.map((c, i) => `
-    <div class="swatch ${i===selectedColor?'selected':''}"
-         style="background:${c.border}"
-         onclick="selectColor(${i})"></div>
-  `).join('');
+function buildCatOpts(selId) {
+  return EVENT_CATS.map(c =>
+    `<option value="${c.id}" ${c.id === selId ? 'selected' : ''}>${c.name}</option>`
+  ).join('');
 }
 
-function selectColor(i) {
-  selectedColor = i;
-  buildSwatches();
-}
-
-function openModal(dateStr, hour) {
-  editingId = null;
-  selectedColor = 0;
-  document.getElementById('modal-title').textContent = 'New Event';
+function openAddModal(dateStr, hour) {
+  editingEvtId   = null;
+  editingEvtDate = null;
+  document.getElementById('modal-title').textContent = 'イベント追加';
   document.getElementById('btn-delete').style.display = 'none';
-  document.getElementById('f-title').value = '';
-  document.getElementById('f-note').value = '';
-  const d = dateStr || isoDate(anchor);
-  document.getElementById('f-date').value = d;
+  document.getElementById('f-title').value    = '';
+  document.getElementById('f-note').value     = '';
+  document.getElementById('f-location').value = '';
+  document.getElementById('f-date').value     = dateStr || isoDate(new Date());
   const h = hour !== undefined ? hour : 9;
-  document.getElementById('f-start').value = minutesToTime(h*60);
-  document.getElementById('f-end').value   = minutesToTime(h*60+60);
-  buildSwatches();
-  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('f-start').value = `${String(h).padStart(2,'0')}:00`;
+  document.getElementById('f-end').value   = `${String(Math.min(h+1,23)).padStart(2,'0')}:00`;
+  document.getElementById('f-cat').innerHTML = buildCatOpts('meal');
+  document.getElementById('event-overlay').classList.add('open');
   setTimeout(() => document.getElementById('f-title').focus(), 50);
 }
 
-function editEvent(id) {
-  const ev = events.find(e => e.id === id);
+function openEditModal(evtId, dateStr) {
+  const ev = getEvents(currentSport, dateStr).find(e => e.id === evtId);
   if (!ev) return;
-  editingId = id;
-  selectedColor = ev.color ?? 0;
-  document.getElementById('modal-title').textContent = 'Edit Event';
+  editingEvtId   = evtId;
+  editingEvtDate = dateStr;
+  document.getElementById('modal-title').textContent = 'イベント編集';
   document.getElementById('btn-delete').style.display = '';
-  document.getElementById('f-title').value = ev.title;
-  document.getElementById('f-date').value  = ev.date;
-  document.getElementById('f-start').value = ev.start;
-  document.getElementById('f-end').value   = ev.end;
-  document.getElementById('f-note').value  = ev.note || '';
-  buildSwatches();
-  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('f-title').value    = ev.title;
+  document.getElementById('f-date').value     = dateStr;
+  document.getElementById('f-start').value    = ev.start;
+  document.getElementById('f-end').value      = ev.end;
+  document.getElementById('f-location').value = ev.location || '';
+  document.getElementById('f-note').value     = ev.note || '';
+  document.getElementById('f-cat').innerHTML  = buildCatOpts(ev.catId || 'other');
+  document.getElementById('event-overlay').classList.add('open');
 }
 
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
 }
 
-function saveEvent() {
-  const title = document.getElementById('f-title').value.trim();
+function saveEvt() {
+  const title    = document.getElementById('f-title').value.trim();
   if (!title) { document.getElementById('f-title').focus(); return; }
-  const date  = document.getElementById('f-date').value;
-  const start = document.getElementById('f-start').value;
-  const end   = document.getElementById('f-end').value;
-  const note  = document.getElementById('f-note').value.trim();
+  const dateStr  = document.getElementById('f-date').value;
+  const start    = document.getElementById('f-start').value;
+  const end      = document.getElementById('f-end').value;
+  const catId    = document.getElementById('f-cat').value;
+  const location = document.getElementById('f-location').value.trim();
+  const note     = document.getElementById('f-note').value.trim();
 
-  if (!date || !start || !end) return;
-  if (start >= end) {
-    alert('End time must be after start time.');
-    return;
-  }
+  if (!dateStr || !start || !end) return;
+  if (start >= end) { alert('終了時刻は開始時刻より後にしてください'); return; }
 
-  if (editingId) {
-    const idx = events.findIndex(e => e.id === editingId);
-    if (idx > -1) events[idx] = { ...events[idx], title, date, start, end, note, color: selectedColor };
+  if (editingEvtId && editingEvtDate) {
+    // Remove from old date
+    const dd = getDateData(currentSport, editingEvtDate);
+    dd.events = dd.events.filter(e => e.id !== editingEvtId);
+    // Add to (possibly new) date
+    getDateData(currentSport, dateStr).events.push(
+      { id: editingEvtId, title, start, end, catId, location, note }
+    );
   } else {
-    events.push({ id: crypto.randomUUID(), title, date, start, end, note, color: selectedColor });
+    getDateData(currentSport, dateStr).events.push(
+      { id: crypto.randomUUID(), title, start, end, catId, location, note }
+    );
   }
-  saveEvents();
-  closeModal();
-  render();
+  persist();
+  closeModal('event-overlay');
+  renderCalendar();
 }
 
-function deleteEvent() {
-  if (!editingId) return;
-  events = events.filter(e => e.id !== editingId);
-  saveEvents();
-  closeModal();
-  render();
+function deleteEvt() {
+  if (!editingEvtId || !editingEvtDate) return;
+  const dd = getDateData(currentSport, editingEvtDate);
+  dd.events = dd.events.filter(e => e.id !== editingEvtId);
+  persist();
+  closeModal('event-overlay');
+  renderCalendar();
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
-document.getElementById('modal-overlay').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
+// ── Copy ───────────────────────────────────────────────────────────────────
+function openCopyModal(fromDate) {
+  copyFromDate = fromDate;
+  const d = new Date(fromDate + 'T00:00:00');
+  document.getElementById('copy-from-lbl').textContent =
+    `${d.getMonth()+1}/${d.getDate()}(${DAY_NAMES[d.getDay()]})`;
+  document.getElementById('copy-to').value = '';
+  document.getElementById('copy-overlay').classList.add('open');
+}
+
+function doCopy() {
+  const toDate = document.getElementById('copy-to').value;
+  if (!toDate || !copyFromDate) return;
+  const fromDd = getDateData(currentSport, copyFromDate);
+  const toDd   = getDateData(currentSport, toDate);
+  toDd.events  = fromDd.events.map(ev => ({ ...ev, id: crypto.randomUUID() }));
+  toDd.dayCat  = fromDd.dayCat || '';
+  persist();
+  closeModal('copy-overlay');
+  renderCalendar();
+}
+
+// ── Word Export ─────────────────────────────────────────────────────────────
+function exportWord() {
+  const sport = SPORTS.find(s => s.id === currentSport);
+  const dates = getDateRange();
+
+  // ── Header cells (with day category) ──
+  const thCells = dates.map(d => {
+    const ds  = isoDate(d);
+    const dow = d.getDay();
+    const cat = getDayCat(currentSport, ds);
+    const cs  = DAY_CAT_STYLES[cat] || {};
+    const dayColor = dow === 0 ? 'color:#cc0000' : dow === 6 ? 'color:#1565c0' : '';
+
+    // 日程区分を日付の下に表示
+    const catHtml = cat
+      ? `<br/><span style="display:inline-block;margin-top:3pt;padding:1pt 5pt;border-radius:3pt;background:${cs.bg};color:${cs.color};font-size:8pt;font-weight:bold">${escHtml(cat)}</span>`
+      : '';
+
+    return `<th style="border:1px solid #ccc;padding:4px 6px;text-align:center;background:#f8f8f8;width:80pt;${dayColor}">
+      <b>${d.getMonth()+1}/${d.getDate()}(${DAY_NAMES[dow]})</b>${catHtml}
+    </th>`;
+  }).join('');
+
+  // ── Body rows ──
+  let bodyRows = '';
+  for (let h = HOUR_START; h < HOUR_END; h++) {
+    const dateCells = dates.map(d => {
+      const ds   = isoDate(d);
+      const evts = getEvents(currentSport, ds).filter(ev => Math.floor(toMins(ev.start) / 60) === h);
+      const evHtml = evts.map(ev => {
+        const cat = EVENT_CATS.find(c => c.id === ev.catId) || EVENT_CATS[EVENT_CATS.length - 1];
+        return `<div style="background:${cat.bg};border-left:3px solid ${cat.color};padding:2px 4px;margin-bottom:2px;font-size:9pt">
+          <b>${escHtml(ev.title)}</b>${ev.location ? ` <span style="color:#666">${escHtml(ev.location)}</span>` : ''}<br/>
+          <span style="color:#999;font-size:8pt">${ev.start}〜${ev.end}</span>
+        </div>`;
+      }).join('');
+      return `<td style="border:1px solid #ccc;padding:3px;vertical-align:top;min-height:36pt">${evHtml || '&nbsp;'}</td>`;
+    }).join('');
+
+    bodyRows += `<tr>
+      <td style="border:1px solid #ccc;padding:2px 6px;text-align:right;white-space:nowrap;font-size:9pt;color:#888;background:#fafafa">${String(h).padStart(2,'0')}:00</td>
+      ${dateCells}
+    </tr>`;
+  }
+
+  const first = dates[0], last = dates[dates.length-1];
+  const rangeLabel = `${first.getMonth()+1}/${first.getDate()} 〜 ${last.getMonth()+1}/${last.getDate()}`;
+
+  const htmlDoc = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:w="urn:schemas-microsoft-com:office:word"
+    xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8"/>
+<meta name="ProgId" content="Word.Document"/>
+<title>タイムスケジュール</title>
+<style>
+  body { font-family: "Meiryo","MS Gothic",sans-serif; font-size:10pt; }
+  table { border-collapse:collapse; }
+</style>
+</head>
+<body>
+<h2 style="font-size:13pt;margin-bottom:4pt">タイムスケジュール — ${escHtml(sport?.name || '')}</h2>
+<p style="font-size:9pt;color:#666;margin-bottom:10pt">期間: ${escHtml(rangeLabel)}　出力日: ${new Date().toLocaleDateString('ja-JP')}</p>
+<table style="width:100%">
+  <thead>
+    <tr>
+      <th style="border:1px solid #ccc;padding:4px;width:36pt;background:#f8f8f8">時間</th>
+      ${thCells}
+    </tr>
+  </thead>
+  <tbody>${bodyRows}</tbody>
+</table>
+</body>
+</html>`;
+
+  const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `タイムスケジュール_${sport?.name || 'schedule'}_${isoDate(new Date())}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Event Listeners ────────────────────────────────────────────────────────
+document.getElementById('event-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal('event-overlay');
+});
+document.getElementById('copy-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal('copy-overlay');
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') { closeModal('event-overlay'); closeModal('copy-overlay'); }
 });
 
-render();
+// ── Init ───────────────────────────────────────────────────────────────────
+renderAll();
 </script>
 </body>
 </html>
