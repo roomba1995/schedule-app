@@ -19,6 +19,7 @@ const CombinedGrid = (() => {
   let _selectedEvents = [];     // [{ id, sportId, date }]
   let _targetSportId  = null;
   let _targetDate     = null;
+  let _targetTime     = null;  // last clicked slot time (for Ctrl+V offset)
   let _drag           = null;
   let _resize         = null;
   let _kbListenerAttached = false;
@@ -58,6 +59,7 @@ const CombinedGrid = (() => {
     _selectedEvents = [];
     _targetSportId  = null;
     _targetDate     = null;
+    _targetTime     = null;
     render();
   }
 
@@ -218,10 +220,11 @@ const CombinedGrid = (() => {
 
   // ── Slot click (paste or open add modal) ─────────────────────────────────
   function handleSlotClick(sportId, date, time) {
+    _targetSportId = sportId;
+    _targetDate    = date;
+    _targetTime    = time;
     if (_clipboard) {
-      _targetSportId = sportId;
-      _targetDate    = date;
-      _pasteToTarget();
+      _pasteToTarget(time);
     } else {
       showEventModal(null, sportId, date, time);
     }
@@ -428,7 +431,7 @@ const CombinedGrid = (() => {
     } else if (e.key === 'c' && (e.ctrlKey || e.metaKey) && _selectedEvents.length > 0) {
       e.preventDefault(); _copySelected();
     } else if (e.key === 'v' && (e.ctrlKey || e.metaKey) && _clipboard && _targetSportId && _targetDate) {
-      e.preventDefault(); _pasteToTarget();
+      e.preventDefault(); _pasteToTarget(_targetTime);
     } else if (e.key === 'Escape') {
       _selectedEvents = []; _updateHighlight();
     }
@@ -457,11 +460,28 @@ const CombinedGrid = (() => {
     App.showToast(`${events.length} 件をコピーしました（貼り付け先の列をクリック）`);
   }
 
-  function _pasteToTarget() {
+  function _pasteToTarget(anchorTime) {
     if (!_clipboard || !_targetSportId || !_targetDate) return;
     if (_clipboard.events.length === 0) { App.showToast('コピーするイベントがありません', 'warning'); return; }
+
+    // Excel-like: if an anchor time was clicked, shift all events so the first event
+    // starts at the anchor. Relative offsets between multiple events are preserved.
+    let offsetMins = 0;
+    if (anchorTime && _clipboard.events.length > 0) {
+      const firstStart = tMin(_clipboard.events[0].startTime);
+      offsetMins = tMin(anchorTime) - firstStart;
+    }
+
     _clipboard.events.forEach(ev => {
       const { id, ...rest } = ev;
+      if (offsetMins !== 0) {
+        const newStart = tMin(ev.startTime) + offsetMins;
+        const newEnd   = tMin(ev.endTime)   + offsetMins;
+        if (newStart >= START_HOUR*60 && newEnd <= END_HOUR*60) {
+          rest.startTime = minToTime(newStart);
+          rest.endTime   = minToTime(newEnd);
+        }
+      }
       DataManager.saveEvent(_targetSportId, _targetDate, rest);
     });
     render();
