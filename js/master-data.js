@@ -52,6 +52,7 @@ const EMBEDDED_MASTER = {
     { "id": "training",    "name": "練習・トレーニング",    "color": "#3498db" },
     { "id": "competition", "name": "競技",                "color": "#e74c3c" },
     { "id": "transport",   "name": "移動・交通",           "color": "#9b59b6" },
+    { "id": "hotel_move",  "name": "ホテル内移動",         "color": "#2980b9" },
     { "id": "meeting",     "name": "ミーティング",         "color": "#1abc9c" },
     { "id": "medical",     "name": "医療・ケア",           "color": "#27ae60" },
     { "id": "rest",        "name": "休息・自由時間",       "color": "#a29bfe" },
