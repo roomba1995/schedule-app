@@ -95,7 +95,7 @@ const CombinedGrid = (() => {
         ` : ''}
       </div>`;
 
-    const kbHint = `<div class="kb-hint">選択: クリック ／ 複数選択: Ctrl+クリック ／ コピー: Ctrl+C ／ 削除: Delete ／ 空白クリック: コピー中はペースト・それ以外はイベント追加 ／ ドラッグ: 移動 ／ Ctrl+Shift+ドラッグ: コピー ／ 選択解除: Esc</div>`;
+    const kbHint = `<div class="kb-hint">選択: クリック ／ 複数選択: Ctrl+クリック ／ コピー: Ctrl+C ／ ペースト: 貼り付け先をクリック→Ctrl+V ／ 削除: Delete ／ 空白クリック: イベント追加 ／ ドラッグ: 移動 ／ Ctrl+Shift+ドラッグ: コピー ／ 選択解除: Esc</div>`;
 
     // Time labels
     let timeLabels = '';
@@ -223,11 +223,7 @@ const CombinedGrid = (() => {
     _targetSportId = sportId;
     _targetDate    = date;
     _targetTime    = time;
-    if (_clipboard) {
-      _pasteToTarget(time);
-    } else {
-      showEventModal(null, sportId, date, time);
-    }
+    showEventModal(null, sportId, date, time);
   }
 
   // ── Interaction setup ─────────────────────────────────────────────────────
@@ -457,7 +453,7 @@ const CombinedGrid = (() => {
       fromDate:    _selectedEvents[0].date,
     };
     render();
-    App.showToast(`${events.length} 件をコピーしました（貼り付け先の列をクリック）`);
+    App.showToast(`${events.length} 件をコピーしました（貼り付け先をクリックして Ctrl+V でペースト）`);
   }
 
   function _pasteToTarget(anchorTime) {
