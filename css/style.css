@@ -317,6 +317,38 @@ select:focus, textarea:focus {
   margin-top: 4px;
 }
 
+/* Reset button row — hidden until hover */
+.date-header-cell .date-actions-danger {
+  display: flex;
+  justify-content: center;
+  margin-top: 3px;
+  min-height: 18px;
+}
+
+.date-header-cell .btn-reset-day {
+  padding: 1px 8px;
+  font-size: 10px;
+  background: transparent;
+  color: #c0392b;
+  border: 1px dashed #c0392b;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.date-header-cell:hover .btn-reset-day {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.date-header-cell .btn-reset-day:hover {
+  background: #c0392b;
+  color: white;
+  border-style: solid;
+}
+
 .date-header-cell.weekend .date-label { color: #c0392b; }
 .date-header-cell.saturday .date-label { color: #2980b9; }
 

@@ -143,7 +143,9 @@ const ScheduleGrid = (() => {
             <button class="btn btn-xs btn-secondary" title="このコピー" onclick="ScheduleGrid.copyDay('${date}')">コピー</button>
             ${_clipboard ? `<button class="btn btn-xs btn-primary" title="貼り付け" onclick="ScheduleGrid.pasteDay('${date}')">貼付</button>` : ''}
             <button class="btn btn-xs btn-secondary" title="テンプレートとして保存" onclick="ScheduleGrid.saveDayAsTemplate('${date}')">保存</button>
-            <button class="btn btn-xs btn-danger" title="この日のイベントを全削除" onclick="ScheduleGrid.resetDay('${date}')">リセット</button>
+          </div>
+          <div class="date-actions-danger">
+            <button class="btn btn-xs btn-reset-day" title="この日のイベントをすべて削除" onclick="ScheduleGrid.resetDay('${date}')">🗑 全削除</button>
           </div>
         </div>`;
     }).join('');
