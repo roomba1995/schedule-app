@@ -886,6 +886,9 @@ const ScheduleGrid = (() => {
 
   function _handleKeyDown(e) {
     if (!_container) return;
+    // Skip if this grid's tab panel is not visible (e.g. combined view is active)
+    const panel = _container.closest('.tab-panel');
+    if (panel && !panel.classList.contains('active')) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedEvents.length > 0) {
       e.preventDefault();
