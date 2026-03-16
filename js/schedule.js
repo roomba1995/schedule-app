@@ -16,9 +16,12 @@ const ScheduleGrid = (() => {
   let _hotelId    = null;      // hotel context for function room suggestions
   let _dates      = [];        // array of 'YYYY-MM-DD' strings
   let _container  = null;      // DOM element
-  let _clipboard  = null;      // { events: [...], fromDate: '...' }
-  let _drag       = null;      // drag state
-  let _resize     = null;      // resize state
+  let _clipboard          = null;  // { events: [...], fromDate: '...' }
+  let _drag               = null;  // drag state
+  let _resize             = null;  // resize state
+  let _selectedEvents     = [];    // [{id, date}, ...]
+  let _targetDate         = null;  // paste target date
+  let _kbListenerAttached = false;
 
   // ── Time helpers ─────────────────────────────────────────────────────────
   function timeToMinutes(t) {
@@ -168,9 +171,12 @@ const ScheduleGrid = (() => {
         </div>`;
     }).join('');
 
+    const kbHint = `<div class="kb-hint">選択: クリック ／ 複数選択: Ctrl+クリック ／ コピー: Ctrl+C ／ 削除: Delete ／ 貼り付け: 対象日クリック後 Ctrl+V ／ 選択解除: Esc</div>`;
+
     _container.innerHTML = `
       ${toolbar}
       ${legend}
+      ${kbHint}
       <div class="schedule-wrapper">
         <div class="schedule-container">
           <div class="schedule-header">
@@ -189,6 +195,7 @@ const ScheduleGrid = (() => {
       </div>`;
 
     _initDragDrop();
+    _attachPostRenderListeners();
   }
 
   // ── Event block ──────────────────────────────────────────────────────────
@@ -207,10 +214,12 @@ const ScheduleGrid = (() => {
     const notePopup = hasPopup
       ? `<div class="event-note-popup"><div class="event-note-popup-title">${safeTitle}</div><div class="event-note-popup-body">${popupBody}</div></div>`
       : '';
+    const isSelected = _selectedEvents.some(s => s.id === ev.id && s.date === date);
     return `
-      <div class="event-block${hasPopup ? ' has-note' : ''}"
+      <div class="event-block${hasPopup ? ' has-note' : ''}${isSelected ? ' event-selected' : ''}"
            style="top:${top}px;height:${height}px;background:${color};cursor:grab;"
            data-event-id="${ev.id}" data-date="${date}"
+           ondblclick="event.stopPropagation();ScheduleGrid.showEventModal('${ev.id}','${date}')"
            title="${safeTitle}">
         <div class="event-time">${ev.startTime}–${ev.endTime}</div>
         <div class="event-title">${ev.title || ''}${hasPopup ? ' <span class="note-icon">💬</span>' : ''}</div>
@@ -544,8 +553,8 @@ const ScheduleGrid = (() => {
     if (grid) grid.querySelectorAll('.date-column').forEach(c => c.classList.remove('drag-over'));
 
     if (!moved) {
-      // No movement: regular click → open modal (copy mode click does nothing)
-      if (!copyMode) showEventModal(eventId, origDate);
+      // No movement: single click → select event (dblclick handled by ondblclick handler)
+      if (!copyMode) handleEventClick(e, eventId, origDate);
       return;
     }
 
@@ -777,6 +786,111 @@ const ScheduleGrid = (() => {
     App.showToast('滞在期間を更新しました');
   }
 
+  // ── Selection & keyboard shortcuts ──────────────────────────────────────
+  function _attachPostRenderListeners() {
+    if (!_kbListenerAttached) {
+      document.addEventListener('keydown', _handleKeyDown);
+      _kbListenerAttached = true;
+    }
+    // Click on date header to set paste target
+    _container.querySelectorAll('.date-header-cell').forEach(cell => {
+      cell.addEventListener('click', e => {
+        if (e.target.closest('button') || e.target.closest('select')) return;
+        const date = cell.dataset.date;
+        if (date) { _targetDate = date; _updateTargetHighlight(); }
+      });
+    });
+    // Click on date column background: deselect all (if no Ctrl) and set target
+    _container.querySelectorAll('.date-column').forEach(col => {
+      col.addEventListener('click', e => {
+        if (e.target.closest('.event-block')) return;
+        const date = col.dataset.date;
+        if (date) { _targetDate = date; }
+        if (!e.ctrlKey && !e.metaKey) {
+          _selectedEvents = [];
+          _updateSelectionHighlight();
+        }
+      });
+    });
+  }
+
+  function handleEventClick(e, eventId, date) {
+    _targetDate = date;
+    if (e.ctrlKey || e.metaKey) {
+      const idx = _selectedEvents.findIndex(s => s.id === eventId && s.date === date);
+      if (idx >= 0) _selectedEvents.splice(idx, 1);
+      else _selectedEvents.push({ id: eventId, date });
+    } else {
+      _selectedEvents = [{ id: eventId, date }];
+    }
+    _updateSelectionHighlight();
+  }
+
+  function _updateSelectionHighlight() {
+    if (!_container) return;
+    _container.querySelectorAll('.event-block').forEach(el => {
+      const id   = el.dataset.eventId;
+      const date = el.dataset.date;
+      el.classList.toggle('event-selected', _selectedEvents.some(s => s.id === id && s.date === date));
+    });
+    _updateTargetHighlight();
+  }
+
+  function _updateTargetHighlight() {
+    if (!_container) return;
+    _container.querySelectorAll('.date-column').forEach(col => {
+      col.classList.toggle('paste-target', col.dataset.date === _targetDate && _clipboard !== null);
+    });
+  }
+
+  function _handleKeyDown(e) {
+    if (!_container) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && _selectedEvents.length > 0) {
+      e.preventDefault();
+      _deleteSelectedEvents();
+    } else if (e.key === 'c' && (e.ctrlKey || e.metaKey) && _selectedEvents.length > 0) {
+      e.preventDefault();
+      _copySelectedEvents();
+    } else if (e.key === 'v' && (e.ctrlKey || e.metaKey) && _clipboard && _targetDate) {
+      e.preventDefault();
+      _pasteToTargetDate();
+    } else if (e.key === 'Escape') {
+      _selectedEvents = [];
+      _updateSelectionHighlight();
+    }
+  }
+
+  function _deleteSelectedEvents() {
+    if (_selectedEvents.length === 0) return;
+    if (!confirm(`選択した ${_selectedEvents.length} 件のイベントを削除しますか？`)) return;
+    _selectedEvents.forEach(s => DataManager.deleteEvent(_sportId, s.date, s.id));
+    _selectedEvents = [];
+    render();
+    App.showToast('削除しました');
+  }
+
+  function _copySelectedEvents() {
+    const events = _selectedEvents.map(s => {
+      const all = DataManager.getEvents(_sportId, s.date);
+      return all.find(e => e.id === s.id);
+    }).filter(Boolean);
+    _clipboard = { events: JSON.parse(JSON.stringify(events)), fromDate: _selectedEvents[0]?.date };
+    render();
+    App.showToast(`${events.length} 件をコピーしました（貼り付け先の日をクリックして Ctrl+V）`);
+  }
+
+  function _pasteToTargetDate() {
+    if (!_clipboard || !_targetDate) return;
+    if (_clipboard.events.length === 0) { App.showToast('コピーするイベントがありません', 'warning'); return; }
+    _clipboard.events.forEach(ev => {
+      const { id, ...rest } = ev;
+      DataManager.saveEvent(_sportId, _targetDate, rest);
+    });
+    render();
+    App.showToast(`${DataManager.formatDate(_targetDate)} に ${_clipboard.events.length} 件を貼り付けました`);
+  }
+
   function setDayType(date, type) {
     DataManager.setDayType(_sportId, date, type);
     if (!_container) return;
@@ -794,7 +908,7 @@ const ScheduleGrid = (() => {
     saveDayAsTemplate, showSaveTemplateModal, closeSaveTemplateModal, _doSaveTemplate,
     showTemplatePanel, closeTemplatePanel, applyTemplate, deleteTemplate,
     showDateRangeModal, closeDateRangeModal, saveDateRange,
-    setDayType,
+    setDayType, handleEventClick,
     _pendingTemplateEvents: null,
     get clipboard() { return _clipboard; },
   };
