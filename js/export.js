@@ -210,8 +210,8 @@ const ExportManager = (() => {
     const TD_TIME = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:3px 5px;font-size:8pt;text-align:center;vertical-align:middle;line-height:1.5;background:white;`;
     const TD_DATE = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:4px 7px;font-size:9pt;vertical-align:top;white-space:nowrap;line-height:1.5;background:white;`;
 
-    // Day separator row: dark band rendered between days
-    const DAY_SEP = `<tr><td colspan="3" style="height:4pt;padding:0;background:#2c3e50;border:3pt solid #2c3e50;font-size:1pt;line-height:4pt;mso-line-height-alt:4pt;"> </td></tr>`;
+    // Day separator row: single thin line between days
+    const DAY_SEP = `<tr><td colspan="3" style="height:1pt;padding:0;background:#888;border-top:1pt solid #888;border-bottom:0;border-left:1pt solid #c0c0c0;border-right:1pt solid #c0c0c0;font-size:1pt;line-height:1pt;mso-line-height-alt:1pt;"> </td></tr>`;
 
     // Category color map
     const cats = DataManager.getCategories();
