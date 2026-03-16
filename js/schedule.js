@@ -161,7 +161,7 @@ const ScheduleGrid = (() => {
       const cellSlots = slots.map(s => {
         const mins = s.hour * 60 + s.minute;
         return `<div class="time-slot-cell ${s.isHour ? 'hour-boundary' : ''}"
-          onclick="ScheduleGrid.showEventModal(null, '${date}', '${minutesToTime(mins)}')"
+          onclick="ScheduleGrid.handleSlotClick('${date}', '${minutesToTime(mins)}')"
           data-date="${date}" data-time="${minutesToTime(mins)}"></div>`;
       }).join('');
 
@@ -174,7 +174,7 @@ const ScheduleGrid = (() => {
         </div>`;
     }).join('');
 
-    const kbHint = `<div class="kb-hint">選択: クリック ／ 複数選択: Ctrl+クリック ／ コピー: Ctrl+C ／ 削除: Delete ／ 貼り付け: 対象日クリック後 Ctrl+V ／ 選択解除: Esc</div>`;
+    const kbHint = `<div class="kb-hint">選択: クリック ／ 複数選択: Ctrl+クリック ／ コピー: Ctrl+C ／ 削除: Delete ／ 貼り付け: 貼付ボタン or 空白エリアクリック（コピー中） ／ 選択解除: Esc</div>`;
 
     // Save scroll position before replacing innerHTML
     const savedScrollLeft = (() => {
@@ -817,6 +817,16 @@ const ScheduleGrid = (() => {
     App.showToast('滞在期間を更新しました');
   }
 
+  // ── Slot click: paste when clipboard active, otherwise open add-event modal ──
+  function handleSlotClick(date, time) {
+    if (_clipboard) {
+      _targetDate = date;
+      _pasteToTargetDate();
+    } else {
+      showEventModal(null, date, time);
+    }
+  }
+
   // ── Selection & keyboard shortcuts ──────────────────────────────────────
   function _attachPostRenderListeners() {
     if (!_kbListenerAttached) {
@@ -946,7 +956,7 @@ const ScheduleGrid = (() => {
   return {
     init, render,
     showEventModal, closeEventModal, saveEventFromModal, confirmDeleteEvent,
-    _onFuncRoomSelect,
+    _onFuncRoomSelect, handleSlotClick,
     copyDay, pasteDay, clearClipboard, resetDay,
     saveDayAsTemplate, showSaveTemplateModal, closeSaveTemplateModal, _doSaveTemplate,
     showTemplatePanel, closeTemplatePanel, applyTemplate, deleteTemplate,

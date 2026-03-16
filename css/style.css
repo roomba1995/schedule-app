@@ -1082,3 +1082,65 @@ select:focus, textarea:focus {
   .schedule-wrapper { overflow: visible; border: none; }
   .date-column { page-break-inside: avoid; }
 }
+
+/* ===== Hotel Combined Multi-Sport View ===== */
+.hotel-sport-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.hotel-sport-filter .filter-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.filter-chip input[type=checkbox] { display: none; }
+.filter-chip span {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+.filter-chip input:checked + span { opacity: 1; }
+
+.combined-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 0 8px;
+}
+
+/* Sport badge on combined view events */
+.combined-event {
+  padding-top: 14px !important;
+}
+.combined-sport-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 4px 4px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 13px;
+}
