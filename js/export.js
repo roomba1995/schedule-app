@@ -264,7 +264,7 @@ const ExportManager = (() => {
         let titleLine = titleSpan;
         if (ev.floor || ev.location) {
           const locText = [ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join('　');
-          titleLine += `<span style="color:#bbb;padding:0 6pt;">｜</span><span style="font-size:8.5pt;font-weight:bold;color:#2980b9;">📍 ${locText}</span>`;
+          titleLine += `<span style="color:#ccc;padding:0 6pt;">｜</span><span style="font-size:8.5pt;color:#555;">📍 ${locText}</span>`;
         }
 
         const parts = [titleLine];
