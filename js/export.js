@@ -301,6 +301,185 @@ const ExportManager = (() => {
       </table>`;
   }
 
+  // ── Timetable XLS export (time rows × date×sport columns) ────────────────
+  function buildTimetableXLS(sportIds) {
+    const sports = sportIds.map(id => DataManager.getSport(id)).filter(Boolean);
+    const cats   = DataManager.getCategories();
+    const catMap = {};
+    cats.forEach(c => { catMap[c.id] = c; });
+
+    const dr       = DataManager.getDateRange();
+    const allDatesSet = new Set();
+    for (const sport of sports) {
+      const start = sport.startDate || dr.start;
+      const end   = sport.endDate   || dr.end;
+      DataManager.getDatesInRange(start, end).forEach(d => allDatesSet.add(d));
+    }
+    const dates = [...allDatesSet].sort();
+
+    const START_MIN = 6 * 60, END_MIN = 24 * 60, SLOT = 30;
+    const slots = [];
+    for (let m = START_MIN; m < END_MIN; m += SLOT) slots.push(m);
+
+    // Pre-load events
+    const evCache = {};
+    for (const sport of sports) {
+      evCache[sport.id] = {};
+      for (const date of dates) {
+        evCache[sport.id][date] = DataManager.getEvents(sport.id, date);
+      }
+    }
+
+    function eventsInSlot(sportId, date, slotMin) {
+      return (evCache[sportId][date] || []).filter(ev => {
+        const s = timeToMinutes(ev.startTime);
+        return s >= slotMin && s < slotMin + SLOT;
+      });
+    }
+
+    function safeLight(color) {
+      try { return _lightOrDark(color); } catch(e) { return 'dark'; }
+    }
+
+    // rowspan skip tracker: skipMap[di][si] = remaining rows to skip
+    const skipMap = dates.map(() => sports.map(() => 0));
+
+    const S = sports.length;
+
+    // ── styles ────────────────────────────────────────────────────────────
+    const TH_DATE  = `background:#2c3e50;color:white;text-align:center;padding:5px 4px;border:1px solid #1a252f;font-size:10pt;font-weight:bold;`;
+    const TH_SPORT = `text-align:center;padding:3px 2px;border:1px solid rgba(0,0,0,0.25);font-size:8pt;font-weight:bold;white-space:nowrap;`;
+    const TD_H     = `text-align:center;white-space:nowrap;font-size:8pt;font-weight:bold;padding:0 4px;border:1px solid #bbb;background:#ecf0f1;color:#2c3e50;vertical-align:top;`;
+    const TD_HH    = `text-align:center;white-space:nowrap;font-size:7pt;padding:0 4px;border:1px solid #ddd;background:#f8f9fa;color:#bbb;vertical-align:top;`;
+    const TD_EMPTY = `border:1px solid #e8e8e8;background:white;`;
+
+    let html = `<table style="border-collapse:collapse;font-family:'Meiryo','Yu Gothic',sans-serif;font-size:9pt;table-layout:fixed;">`;
+
+    // Header row 1: dates
+    html += `<thead><tr>`;
+    html += `<th rowspan="2" style="${TH_DATE}width:40pt;">時刻</th>`;
+    for (const date of dates) {
+      const [, mo, d] = date.split('-');
+      const dow = ['日','月','火','水','木','金','土'][new Date(date).getDay()];
+      const day = new Date(date).getDay();
+      const dowColor = day === 0 ? '#ff9999' : day === 6 ? '#99ccff' : 'white';
+      html += `<th colspan="${S}" style="${TH_DATE}color:${dowColor};">${Number(mo)}/${Number(d)}（${dow}）</th>`;
+    }
+    html += `</tr>`;
+
+    // Header row 2: sport names per date
+    html += `<tr>`;
+    for (const date of dates) {
+      for (const sport of sports) {
+        const bg = sport.color || '#7f8c8d';
+        html += `<th style="${TH_SPORT}background:${bg};color:white;width:80pt;">${sport.shortName || sport.name}</th>`;
+      }
+    }
+    html += `</tr></thead><tbody>`;
+
+    for (const slotMin of slots) {
+      const hh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+      const mm = String(slotMin % 60).padStart(2, '0');
+      const isHour = slotMin % 60 === 0;
+
+      html += `<tr style="height:${isHour ? '18pt' : '14pt'};">`;
+      html += `<td style="${isHour ? TD_H : TD_HH}">${hh}:${mm}</td>`;
+
+      for (let di = 0; di < dates.length; di++) {
+        const date = dates[di];
+        for (let si = 0; si < sports.length; si++) {
+          const sport = sports[si];
+
+          if (skipMap[di][si] > 0) {
+            skipMap[di][si]--;
+            continue;
+          }
+
+          const evs = eventsInSlot(sport.id, date, slotMin);
+          if (evs.length > 0) {
+            const ev       = evs[0];
+            const durMins  = timeToMinutes(ev.endTime) - timeToMinutes(ev.startTime);
+            const rowspan  = Math.max(1, Math.ceil(durMins / SLOT));
+            skipMap[di][si] = rowspan - 1;
+
+            const cat     = catMap[ev.category];
+            const bgColor = ev.color || (cat ? cat.color : '#95a5a6');
+            const isLight = safeLight(bgColor) === 'light';
+            const fg      = isLight ? '#1a1a1a' : '#ffffff';
+            const border  = isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.25)';
+
+            const locParts = [ev.floor ? `${ev.floor}F` : '', ev.location || ''].filter(Boolean);
+            const locHtml  = locParts.length
+              ? `<div style="font-size:7pt;opacity:0.88;margin-top:1pt;">${locParts.join(' ')}</div>` : '';
+            const content  =
+              `<div style="font-size:7pt;font-weight:bold;opacity:0.9;">${ev.startTime}–${ev.endTime}</div>` +
+              `<div style="font-size:9pt;font-weight:bold;line-height:1.2;">${ev.title}</div>` +
+              locHtml;
+
+            html += `<td rowspan="${rowspan}" style="background:${bgColor};color:${fg};padding:3px 4px;border:1px solid ${border};vertical-align:top;width:80pt;overflow:hidden;">${content}</td>`;
+          } else {
+            html += `<td style="${TD_EMPTY}width:80pt;"></td>`;
+          }
+        }
+      }
+      html += `</tr>`;
+    }
+
+    html += `</tbody></table>`;
+    return html;
+  }
+
+  function exportTimetableXLS(sportIds) {
+    const sports = sportIds.map(id => DataManager.getSport(id)).filter(Boolean);
+    if (sports.length === 0) { alert('競技を選択してください。'); return; }
+
+    const title    = sports.map(s => s.shortName || s.name).join('・');
+    const tableHtml = buildTimetableXLS(sportIds);
+    const dr       = DataManager.getDateRange();
+
+    const fullHtml = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="UTF-8"><title>${title} タイムテーブル</title>
+  <!--[if gte mso 9]><xml>
+    <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+      <x:Name>タイムテーブル</x:Name>
+      <x:WorksheetOptions><x:FreezePanes/><x:FrozenNoSplit/>
+        <x:SplitHorizontal>2</x:SplitHorizontal><x:TopRowBottomPane>2</x:TopRowBottomPane>
+        <x:SplitVertical>1</x:SplitVertical><x:LeftColumnRightPane>1</x:LeftColumnRightPane>
+      </x:WorksheetOptions>
+    </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
+  </xml><![endif]-->
+  <style>body{font-family:'Meiryo','Yu Gothic',sans-serif;font-size:9pt;}td,th{mso-number-format:"@";}</style>
+</head>
+<body>
+  <h2 style="font-family:'Meiryo','Yu Gothic',sans-serif;font-size:14pt;color:#2c3e50;margin-bottom:8pt;">${title} タイムテーブル</h2>
+  ${tableHtml}
+</body></html>`;
+
+    downloadFile(fullHtml, `timetable_${dr.start}_${dr.end}.xls`, 'application/vnd.ms-excel');
+  }
+
+  function exportSelectedSportsToWord(sportIds) {
+    const sports = sportIds.map(id => DataManager.getSport(id)).filter(Boolean);
+    if (sports.length === 0) { alert('競技を選択してください。'); return; }
+
+    const dr = DataManager.getDateRange();
+    let allHtml = '';
+    sports.forEach((sport, i) => {
+      const start = sport.startDate || dr.start;
+      const end   = sport.endDate   || dr.end;
+      allHtml += buildWordHTML(sport, DataManager.getDatesInRange(start, end), i > 0);
+    });
+
+    const title = sports.length === 1
+      ? `${sports[0].name} スケジュール`
+      : `スケジュール（${sports.map(s => s.shortName || s.name).join('・')}）`;
+    downloadFile(wrapWordHTML(title, allHtml), `schedule_${dr.start}_${dr.end}.doc`, 'application/msword');
+  }
+
   function wrapWordHTML(title, bodyHtml) {
     return `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
@@ -656,41 +835,60 @@ const ExportManager = (() => {
 
   // ── Export modal ──────────────────────────────────────────────────────────
   function showExportModal(sportId, hotelId) {
-    const sport = sportId ? DataManager.getSport(sportId) : null;
-    const hotel = hotelId ? DataManager.getHotel(hotelId) : null;
-    const name  = sport ? sport.name : hotel ? hotel.name : '全競技';
+    const allSports = DataManager.getSports();
+
+    // Determine preselected sports from context
+    const preselected = new Set();
+    if (sportId) {
+      preselected.add(sportId);
+    } else if (hotelId) {
+      DataManager.getSportsForHotel(hotelId).forEach(s => preselected.add(s.id));
+    } else {
+      allSports.forEach(s => preselected.add(s.id));
+    }
+
+    const checkboxes = allSports.map(sport => {
+      const bg      = sport.color ? sport.color + '22' : '#f8f9fa';
+      const border  = sport.color || '#ddd';
+      const checked = preselected.has(sport.id) ? 'checked' : '';
+      return `
+        <label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer;background:${bg};border:1.5px solid ${border};margin-bottom:4px;">
+          <input type="checkbox" name="export-sport" value="${sport.id}" ${checked}
+                 style="width:15px;height:15px;cursor:pointer;accent-color:${sport.color || '#2c3e50'};">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${sport.color || '#95a5a6'};flex-shrink:0;"></span>
+          <span style="font-size:13px;font-weight:500;">${sport.name}</span>
+        </label>`;
+    }).join('');
 
     const html = `
       <div class="modal-overlay" id="export-modal" onclick="if(event.target===this)ExportManager.closeExportModal()">
-        <div class="modal">
+        <div class="modal" style="max-width:500px;">
           <div class="modal-header">
-            <h3>エクスポート: ${name}</h3>
+            <h3>エクスポート</h3>
             <button class="modal-close" onclick="ExportManager.closeExportModal()">×</button>
           </div>
           <div class="modal-body">
-            <p style="margin-bottom:16px;color:#7f8c8d;font-size:13px;">出力形式を選択してください</p>
+            <p style="font-size:13px;font-weight:bold;color:#444;margin-bottom:10px;">① 競技を選択</p>
+            <div style="max-height:280px;overflow-y:auto;padding:2px 4px;">
+              ${checkboxes}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button style="font-size:11px;padding:3px 10px;background:none;border:1px solid #bbb;border-radius:4px;cursor:pointer;"
+                      onclick="document.querySelectorAll('[name=export-sport]').forEach(c=>c.checked=true)">全選択</button>
+              <button style="font-size:11px;padding:3px 10px;background:none;border:1px solid #bbb;border-radius:4px;cursor:pointer;"
+                      onclick="document.querySelectorAll('[name=export-sport]').forEach(c=>c.checked=false)">全解除</button>
+            </div>
+            <hr style="margin:16px 0;border:none;border-top:1px solid #eee;">
+            <p style="font-size:13px;font-weight:bold;color:#444;margin-bottom:10px;">② 形式を選択</p>
             <div style="display:grid;gap:10px;">
-              ${sport ? `
-                <button class="btn btn-success" onclick="ExportManager.exportSportToExcel('${sportId}');ExportManager.closeExportModal()">
-                  📊 Excelファイル (.xlsx) でダウンロード
-                </button>
-                <button class="btn btn-outline" onclick="ExportManager.exportSportToWord('${sportId}');ExportManager.closeExportModal()">
-                  📄 Wordファイル (.doc) でダウンロード
-                </button>
-              ` : ''}
-              ${hotel ? `
-                <button class="btn btn-success" onclick="ExportManager.exportHotelToExcel('${hotelId}');ExportManager.closeExportModal()">
-                  📊 Excelファイル (.xlsx) でダウンロード
-                </button>
-                <button class="btn btn-outline" onclick="ExportManager.exportHotelToWord('${hotelId}');ExportManager.closeExportModal()">
-                  📄 Wordファイル (.doc) でダウンロード
-                </button>
-              ` : ''}
-              ${!sport && !hotel ? `
-                <button class="btn btn-success" onclick="ExportManager.exportAllToExcel();ExportManager.closeExportModal()">
-                  📊 全競技をExcel (.xlsx) でダウンロード
-                </button>
-              ` : ''}
+              <button class="btn btn-success" onclick="ExportManager._doExportXLS()" style="font-size:13px;padding:10px;">
+                📊 Excelタイムテーブル (.xls)<br>
+                <span style="font-size:11px;font-weight:normal;opacity:0.85;">時刻×日付グリッド・複数競技を横並び表示</span>
+              </button>
+              <button class="btn btn-outline" onclick="ExportManager._doExportWord()" style="font-size:13px;padding:10px;">
+                📄 Word行動計画表 (.doc)<br>
+                <span style="font-size:11px;font-weight:normal;opacity:0.75;">競技ごとの日程表形式</span>
+              </button>
             </div>
           </div>
           <div class="modal-footer">
@@ -705,6 +903,24 @@ const ExportManager = (() => {
   function closeExportModal() {
     const m = document.getElementById('export-modal');
     if (m) m.remove();
+  }
+
+  function _getSelectedSportIds() {
+    return [...document.querySelectorAll('[name=export-sport]:checked')].map(c => c.value);
+  }
+
+  function _doExportXLS() {
+    const ids = _getSelectedSportIds();
+    if (!ids.length) { alert('競技を選択してください。'); return; }
+    closeExportModal();
+    exportTimetableXLS(ids);
+  }
+
+  function _doExportWord() {
+    const ids = _getSelectedSportIds();
+    if (!ids.length) { alert('競技を選択してください。'); return; }
+    closeExportModal();
+    exportSelectedSportsToWord(ids);
   }
 
   // ── Hotel Rooms Export/Import ─────────────────────────────────────────────
@@ -787,10 +1003,12 @@ const ExportManager = (() => {
   return {
     exportSportToExcel, exportAllToExcel, exportHotelToExcel,
     exportSportToWord, exportHotelToWord,
+    exportTimetableXLS, exportSelectedSportsToWord,
     downloadJSON,
     exportMasterXLSX, exportSchedulesXLSX, exportSchedulesCSV, exportFullXLSX,
     exportScheduleTemplate,
     exportHotelRoomsXLSX, importHotelRoomsXLSX,
     showExportModal, closeExportModal,
+    _doExportXLS, _doExportWord,
   };
 })();
