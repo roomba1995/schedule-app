@@ -211,7 +211,7 @@ const ExportManager = (() => {
     const TD_DATE = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:4px 7px;font-size:9pt;vertical-align:top;white-space:nowrap;line-height:1.5;background:white;`;
 
     // Day separator row: thin 2pt strip, Word-exact height
-    const DAY_SEP = `<tr style="mso-row-height-rule:exactly;height:2pt;"><td colspan="3" style="height:2pt;padding:0;background:#999999;border-top:1pt solid #999999;border-bottom:1pt solid #999999;border-left:1pt solid #c0c0c0;border-right:1pt solid #c0c0c0;font-size:1pt;line-height:1pt;mso-line-height-alt:1pt;"></td></tr>`;
+    const DAY_SEP = `<tr style="mso-row-height-rule:exactly;height:.5pt;"><td colspan="3" style="height:.5pt;padding:0;background:#999999;border-top:.5pt solid #999999;border-bottom:.5pt solid #999999;border-left:1pt solid #c0c0c0;border-right:1pt solid #c0c0c0;font-size:.5pt;line-height:.5pt;mso-line-height-alt:.5pt;"></td></tr>`;
 
     // Category color map
     const cats = DataManager.getCategories();
