@@ -143,6 +143,7 @@ const ScheduleGrid = (() => {
             <button class="btn btn-xs btn-secondary" title="このコピー" onclick="ScheduleGrid.copyDay('${date}')">コピー</button>
             ${_clipboard ? `<button class="btn btn-xs btn-primary" title="貼り付け" onclick="ScheduleGrid.pasteDay('${date}')">貼付</button>` : ''}
             <button class="btn btn-xs btn-secondary" title="テンプレートとして保存" onclick="ScheduleGrid.saveDayAsTemplate('${date}')">保存</button>
+            <button class="btn btn-xs btn-danger" title="この日のイベントを全削除" onclick="ScheduleGrid.resetDay('${date}')">リセット</button>
           </div>
         </div>`;
     }).join('');
@@ -891,6 +892,18 @@ const ScheduleGrid = (() => {
     App.showToast(`${DataManager.formatDate(_targetDate)} に ${_clipboard.events.length} 件を貼り付けました`);
   }
 
+  function resetDay(date) {
+    const events = DataManager.getEvents(_sportId, date);
+    if (events.length === 0) {
+      App.showToast('削除するイベントがありません', 'warning');
+      return;
+    }
+    if (!confirm(`${DataManager.formatDate(date)} のイベント ${events.length} 件をすべて削除しますか？\nこの操作は元に戻せません。`)) return;
+    DataManager.clearDayEvents(_sportId, date);
+    render();
+    App.showToast(`${DataManager.formatDate(date)} のイベントをリセットしました`);
+  }
+
   function setDayType(date, type) {
     DataManager.setDayType(_sportId, date, type);
     if (!_container) return;
@@ -904,7 +917,7 @@ const ScheduleGrid = (() => {
     init, render,
     showEventModal, closeEventModal, saveEventFromModal, confirmDeleteEvent,
     _onFuncRoomSelect,
-    copyDay, pasteDay, clearClipboard,
+    copyDay, pasteDay, clearClipboard, resetDay,
     saveDayAsTemplate, showSaveTemplateModal, closeSaveTemplateModal, _doSaveTemplate,
     showTemplatePanel, closeTemplatePanel, applyTemplate, deleteTemplate,
     showDateRangeModal, closeDateRangeModal, saveDateRange,
