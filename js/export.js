@@ -201,9 +201,18 @@ const ExportManager = (() => {
   };
 
   function buildWordHTML(sport, dates, pageBreak = false) {
-    const TH = 'background:#2c3e50;color:white;padding:6px 8px;font-size:11pt;border:1px solid #2c3e50;text-align:center;';
-    const TD = 'padding:6px 8px;font-size:10.5pt;border:1px solid #aaa;vertical-align:top;line-height:1.6;';
-    const TDtime = `${TD}text-align:center;`;
+    const TH = 'background:#2c3e50;color:white;padding:5px 7px;font-size:10pt;border:1px solid #1a252f;text-align:center;';
+
+    // Returns inline style for a body cell.
+    // isFirstInDay → thick top border (day separator); otherwise no top border.
+    function cs(isFirstInDay, opts) {
+      const borderTop = isFirstInDay ? '2px solid #2c3e50' : 'none';
+      const padding   = opts && opts.time ? 'padding:3px 5px;' : 'padding:4px 7px;';
+      const fontSize  = opts && opts.time ? 'font-size:8pt;'   : 'font-size:9pt;';
+      const align     = opts && opts.time ? 'text-align:center;vertical-align:middle;' : 'vertical-align:top;';
+      const nowrap    = opts && opts.nowrap ? 'white-space:nowrap;' : '';
+      return `border-top:${borderTop};border-bottom:none;border-left:1px solid #c0c0c0;border-right:1px solid #c0c0c0;${padding}${fontSize}${align}${nowrap}line-height:1.5;`;
+    }
 
     // Category color map
     const cats = DataManager.getCategories();
@@ -226,53 +235,52 @@ const ExportManager = (() => {
       const dayType      = DataManager.getDayType(sport.id, date);
       const dayTypeLabel = dayType ? (DAY_TYPE_LABELS[dayType] || '') : '';
       const dateCellText = dayTypeLabel
-        ? `${dateLabel}<br><span style="font-size:9pt;color:#555;">${dayTypeLabel}</span>`
+        ? `${dateLabel}<br><span style="font-size:8pt;color:#555;">${dayTypeLabel}</span>`
         : dateLabel;
 
       if (events.length === 0) {
         tableRows += `
           <tr>
-            <td style="${TD}white-space:nowrap;">${dateCellText}</td>
-            <td style="${TD}"></td>
-            <td style="${TD}"></td>
+            <td style="${cs(true, {nowrap:true})}">${dateCellText}</td>
+            <td style="${cs(true, {time:true})}"></td>
+            <td style="${cs(true)}"></td>
           </tr>`;
         continue;
       }
 
       events.forEach((ev, i) => {
-        // Determine color from event color or category color
-        const cat = catMap[ev.category];
-        const evColor = ev.color || (cat ? cat.color : null);
+        const isFirst  = i === 0;
+        const cat      = catMap[ev.category];
+        const evColor  = ev.color || (cat ? cat.color : null);
 
-        // Title text colored with category color; rest of content is default
         const titleHtml = evColor
           ? `<span style="color:${evColor};font-weight:bold;">${ev.title}</span>`
           : `<span style="font-weight:bold;">${ev.title}</span>`;
-        const timeStr = `${ev.startTime}<br>～<br>${ev.endTime}`;
-        const parts = [titleHtml];
+        const timeStr   = `${ev.startTime}<br>～<br>${ev.endTime}`;
+        const parts     = [titleHtml];
         if (ev.floor || ev.location) {
           const locText = [ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join('　');
           parts.push(
-            `<div style="margin-top:4pt;padding:3pt 8pt;background:#eaf4fb;border-left:3pt solid #2980b9;font-size:9.5pt;font-weight:bold;color:#1a5276;">📍 ${locText}</div>`
+            `<div style="margin-top:3pt;padding:2pt 7pt;background:#eaf4fb;border-left:3pt solid #2980b9;font-size:8.5pt;font-weight:bold;color:#1a5276;">📍 ${locText}</div>`
           );
         }
         if (ev.note) {
-          parts.push(`<div style="margin-top:2pt;font-size:9pt;color:#7f8c8d;font-style:italic;">📝 ${ev.note}</div>`);
+          parts.push(`<div style="margin-top:2pt;font-size:8pt;color:#7f8c8d;font-style:italic;">📝 ${ev.note}</div>`);
         }
         const activity = parts.join('');
 
-        if (i === 0) {
+        if (isFirst) {
           tableRows += `
             <tr>
-              <td rowspan="${events.length}" style="${TD}white-space:nowrap;">${dateCellText}</td>
-              <td style="${TDtime}">${timeStr}</td>
-              <td style="${TD}">${activity}</td>
+              <td rowspan="${events.length}" style="${cs(true, {nowrap:true})}">${dateCellText}</td>
+              <td style="${cs(true, {time:true})}">${timeStr}</td>
+              <td style="${cs(true)}">${activity}</td>
             </tr>`;
         } else {
           tableRows += `
             <tr>
-              <td style="${TDtime}">${timeStr}</td>
-              <td style="${TD}">${activity}</td>
+              <td style="${cs(false, {time:true})}">${timeStr}</td>
+              <td style="${cs(false)}">${activity}</td>
             </tr>`;
         }
       });
@@ -284,14 +292,14 @@ const ExportManager = (() => {
       : '';
     return `
       ${pb}
-      <p style="text-align:center;font-size:16pt;font-weight:bold;margin:0 0 12pt;">行動計画表（ドラフト）</p>
-      <p style="font-size:11pt;font-weight:bold;margin:0 0 4pt;">競技：${sport.name}</p>
-      ${hotelName ? `<p style="font-size:11pt;font-weight:bold;margin:0 0 12pt;">宿泊施設：${hotelName}</p>` : '<p style="margin:0 0 12pt;"></p>'}
-      <table style="border-collapse:collapse;width:100%;font-family:'Meiryo','Yu Gothic',sans-serif;">
+      <p style="text-align:center;font-size:15pt;font-weight:bold;margin:0 0 10pt;">行動計画表（ドラフト）</p>
+      <p style="font-size:10pt;font-weight:bold;margin:0 0 3pt;">競技：${sport.name}</p>
+      ${hotelName ? `<p style="font-size:10pt;font-weight:bold;margin:0 0 10pt;">宿泊施設：${hotelName}</p>` : '<p style="margin:0 0 10pt;"></p>'}
+      <table style="border-collapse:collapse;width:100%;font-family:'Meiryo','Yu Gothic',sans-serif;border:2px solid #2c3e50;">
         <thead>
           <tr>
-            <th style="${TH}width:90pt;">年月日</th>
-            <th style="${TH}width:80pt;">予定時間</th>
+            <th style="${TH}width:82pt;">年月日</th>
+            <th style="${TH}width:58pt;">予定時間</th>
             <th style="${TH}">行動予定</th>
           </tr>
         </thead>
