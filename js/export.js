@@ -207,7 +207,7 @@ const ExportManager = (() => {
     const SIDE  = '1pt solid #c0c0c0';
     const INVIS = '1pt solid white';   // "invisible" border – overridden by separator row's 3pt border
     const TD_DATA = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:4px 7px;font-size:9pt;vertical-align:top;line-height:1.5;background:white;`;
-    const TD_TIME = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:3px 5px;font-size:8pt;text-align:center;vertical-align:middle;line-height:1.5;background:white;`;
+    const TD_TIME = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:3px 5px;font-size:7pt;text-align:center;vertical-align:middle;line-height:1.4;background:white;`;
     const TD_DATE = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:4px 7px;font-size:9pt;vertical-align:top;white-space:nowrap;line-height:1.5;background:white;`;
 
     // Day separator row: thin 2pt strip, Word-exact height
@@ -258,7 +258,7 @@ const ExportManager = (() => {
         const titleSpan = evColor
           ? `<span style="color:${evColor};font-weight:bold;">${ev.title}</span>`
           : `<span style="font-weight:bold;">${ev.title}</span>`;
-        const timeStr   = `${ev.startTime}<br>～<br>${ev.endTime}`;
+        const timeStr   = `${ev.startTime}<br><span style="padding-left:4pt;">～${ev.endTime}</span>`;
 
         // Title + location on the same line
         let titleLine = titleSpan;
