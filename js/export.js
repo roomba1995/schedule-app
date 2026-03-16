@@ -435,9 +435,10 @@ const ExportManager = (() => {
         bottom: B(...bottom),
       };
     }
-    const THIN   = ['thin',   'CCCCCC'];
-    const MED    = ['medium', '000000'];
-    const HOUR   = ['medium', 'AAAAAA'];
+    const THIN    = ['thin',   'CCCCCC'];
+    const MED     = ['medium', '888888'];
+    const HOUR    = ['medium', 'AAAAAA'];
+    const DAY_SEP = ['thick',  '2563EB']; // vivid blue — clearly marks date boundaries
 
     // Row 0: date header row
     const r0TimeStyle = {
@@ -455,8 +456,8 @@ const ExportManager = (() => {
         const c = 1 + di * S + si;
         const addr = XS.utils.encode_cell({ r: 0, c });
         if (!ws[addr]) ws[addr] = { t: 's', v: '' };
-        const leftB  = (si === 0) ? MED : THIN;
-        const rightB = (si === S - 1) ? MED : THIN;
+        const leftB  = (si === 0) ? DAY_SEP : THIN;
+        const rightB = (si === S - 1) ? DAY_SEP : THIN;
         ws[addr].s = {
           fill: { fgColor: { rgb: '2C3E50' } },
           font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11, name: 'Meiryo' },
@@ -478,8 +479,8 @@ const ExportManager = (() => {
         if (!ws[addr]) ws[addr] = { t: 's', v: '' };
         const sport  = sports[si];
         const bg     = toRGB(sport.color) || '7F8C8D';
-        const leftB  = (si === 0) ? MED : THIN;
-        const rightB = (si === S - 1) ? MED : THIN;
+        const leftB  = (si === 0) ? DAY_SEP : THIN;
+        const rightB = (si === S - 1) ? DAY_SEP : THIN;
         ws[addr].s = {
           fill: { fgColor: { rgb: bg } },
           font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 9, name: 'Meiryo' },
@@ -516,8 +517,8 @@ const ExportManager = (() => {
           const addr   = XS.utils.encode_cell({ r, c });
           if (!ws[addr]) ws[addr] = { t: 's', v: '' };
 
-          const leftB  = (si === 0) ? MED  : THIN;
-          const rightB = (si === S - 1) ? MED : THIN;
+          const leftB  = (si === 0) ? DAY_SEP : THIN;
+          const rightB = (si === S - 1) ? DAY_SEP : THIN;
 
           const covEv  = eventCovering(sport.id, date, slotMin);
           if (covEv) {
@@ -546,12 +547,20 @@ const ExportManager = (() => {
     // No merges
     ws['!merges'] = [];
 
+    // Per-slot: does any sport have an event starting here? (→ needs taller row)
+    const slotHasContent = slots.map(slotMin =>
+      dates.some(date => sports.some(sp => eventStartingAt(sp.id, date, slotMin) !== null))
+    );
+
     // Column widths & row heights
     ws['!cols'] = [{ wch: 6 }, ...Array(dates.length * S).fill(null).map(() => ({ wch: 16 }))];
     ws['!rows'] = [
       { hpt: 22 },
       { hpt: 16 },
-      ...slots.map(m => ({ hpt: m % 60 === 0 ? 20 : 14 })),
+      ...slots.map((m, ri) => {
+        if (slotHasContent[ri]) return { hpt: 44 }; // enough for 3 wrapped lines
+        return { hpt: m % 60 === 0 ? 18 : 12 };
+      }),
     ];
 
     const wb = XS.utils.book_new();
