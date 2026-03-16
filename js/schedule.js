@@ -110,14 +110,32 @@ const ScheduleGrid = (() => {
           </div>`).join('')}
       </div>`;
 
+    // Day type options
+    const DAY_TYPE_OPTIONS = [
+      { value: '',            label: '-- 区分 --' },
+      { value: 'checkin',     label: 'チェックイン日' },
+      { value: 'practice',    label: '練習日' },
+      { value: 'competition', label: '競技日' },
+      { value: 'stay',        label: '滞在日' },
+      { value: 'checkout',    label: 'チェックアウト日' },
+    ];
+
     // Build header row
     const headerCells = _dates.map((date, i) => {
-      const wd  = DataManager.getWeekday(date);
-      const lbl = DataManager.formatDate(date);
-      const cls = wd === 0 ? 'weekend' : wd === 6 ? 'saturday' : '';
+      const wd      = DataManager.getWeekday(date);
+      const lbl     = DataManager.formatDate(date);
+      const cls     = wd === 0 ? 'weekend' : wd === 6 ? 'saturday' : '';
+      const dayType = DataManager.getDayType(_sportId, date);
+      const dtCls   = dayType ? `daytype-${dayType}` : '';
+      const opts    = DAY_TYPE_OPTIONS.map(o =>
+        `<option value="${o.value}" ${dayType === o.value ? 'selected' : ''}>${o.label}</option>`
+      ).join('');
       return `
-        <div class="date-header-cell ${cls}" data-date="${date}">
+        <div class="date-header-cell ${cls} ${dtCls}" data-date="${date}">
           <div class="date-label">${lbl}</div>
+          <select class="day-type-select" onchange="ScheduleGrid.setDayType('${date}', this.value)">
+            ${opts}
+          </select>
           <div class="date-actions">
             <button class="btn btn-xs btn-secondary" title="このコピー" onclick="ScheduleGrid.copyDay('${date}')">コピー</button>
             ${_clipboard ? `<button class="btn btn-xs btn-primary" title="貼り付け" onclick="ScheduleGrid.pasteDay('${date}')">貼付</button>` : ''}
@@ -759,6 +777,15 @@ const ScheduleGrid = (() => {
     App.showToast('滞在期間を更新しました');
   }
 
+  function setDayType(date, type) {
+    DataManager.setDayType(_sportId, date, type);
+    if (!_container) return;
+    const cell = _container.querySelector(`.date-header-cell[data-date="${date}"]`);
+    if (!cell) return;
+    cell.classList.remove('daytype-checkin', 'daytype-practice', 'daytype-competition', 'daytype-stay', 'daytype-checkout');
+    if (type) cell.classList.add(`daytype-${type}`);
+  }
+
   return {
     init, render,
     showEventModal, closeEventModal, saveEventFromModal, confirmDeleteEvent,
@@ -767,6 +794,7 @@ const ScheduleGrid = (() => {
     saveDayAsTemplate, showSaveTemplateModal, closeSaveTemplateModal, _doSaveTemplate,
     showTemplatePanel, closeTemplatePanel, applyTemplate, deleteTemplate,
     showDateRangeModal, closeDateRangeModal, saveDateRange,
+    setDayType,
     _pendingTemplateEvents: null,
     get clipboard() { return _clipboard; },
   };
