@@ -456,17 +456,24 @@ const App = (() => {
       const spanW = staying.length * COL_W;
       totalCols += staying.length;
 
-      // Row 1: date label spanning all sport columns for this date
-      dateRow += `<div class="combined-date-cell ${wkCls}" style="width:${spanW}px;min-width:${spanW}px;">${lbl}</div>`;
+      // Thick border style marks the END of each date group (shared between header rows and body)
+      const GROUP_BORDER = '2px solid #888';
+      const INNER_BORDER = '1px solid rgba(255,255,255,0.3)';
 
-      // Row 2: one sport name cell per sport
-      staying.forEach(sport => {
-        sportRow += `<div class="combined-sport-cell" style="width:${COL_W}px;min-width:${COL_W}px;background:${sport.color};"
+      // Row 1: date label spanning all sport columns for this date
+      // border-right is included in width (box-sizing:border-box is global)
+      dateRow += `<div class="combined-date-cell ${wkCls}" style="width:${spanW}px;min-width:${spanW}px;border-right:${GROUP_BORDER};">${lbl}</div>`;
+
+      // Row 2: one sport name cell per sport; last cell gets thick border
+      staying.forEach((sport, si) => {
+        const isLast = si === staying.length - 1;
+        sportRow += `<div class="combined-sport-cell" style="width:${COL_W}px;min-width:${COL_W}px;background:${sport.color};border-right:${isLast ? GROUP_BORDER : INNER_BORDER};"
           title="${sport.name}">${sport.shortName || sport.name}</div>`;
       });
 
-      // Body: sport columns inside a date group div
-      let sportCols = staying.map(sport => {
+      // Body: sport columns; last column gets thick border matching date-group separator
+      let sportCols = staying.map((sport, si) => {
+        const isLast = si === staying.length - 1;
         const events = DataManager.getEvents(sport.id, date);
         const blocks = events.map(ev => {
           const cat  = catMap[ev.category];
@@ -482,9 +489,11 @@ const App = (() => {
             <div class="event-title">${safe}</div>
           </div>`;
         }).join('');
-        return `<div class="date-column" style="width:${COL_W}px;min-width:${COL_W}px;height:${gh}px;">${makeCells()}${blocks}</div>`;
+        // Override date-column's default border-right with group-aware border
+        return `<div class="date-column" style="width:${COL_W}px;min-width:${COL_W}px;height:${gh}px;border-right:${isLast ? GROUP_BORDER : '1px solid var(--border)'};">${makeCells()}${blocks}</div>`;
       }).join('');
 
+      // No border on the group itself — the last column carries the thick border
       bodyGroups += `<div class="combined-date-group">${sportCols}</div>`;
     });
 
