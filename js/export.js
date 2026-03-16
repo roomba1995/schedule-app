@@ -305,10 +305,17 @@ const ExportManager = (() => {
   <meta charset="UTF-8">
   <title>${title}</title>
   <!--[if gte mso 9]>
-  <xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument></xml>
+  <xml>
+    <w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument>
+    <w:Document xmlns:w="urn:schemas-microsoft-com:office:word">
+      <w:Body><w:SectPr>
+        <w:pgMar w:top="1440" w:right="1080" w:bottom="1440" w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>
+      </w:SectPr></w:Body>
+    </w:Document>
+  </xml>
   <![endif]-->
   <style>
-    @page { margin: 18mm; }
+    @page { margin: 25.4mm 19.05mm; }
     body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 11pt; margin: 0; padding: 0; }
     table { border-collapse: collapse; width: 100%; }
     thead { display: table-header-group; }
