@@ -305,17 +305,20 @@ const ExportManager = (() => {
   <meta charset="UTF-8">
   <title>${title}</title>
   <!--[if gte mso 9]>
-  <xml>
-    <w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument>
-    <w:Document xmlns:w="urn:schemas-microsoft-com:office:word">
-      <w:Body><w:SectPr>
-        <w:pgMar w:top="1440" w:right="1080" w:bottom="1440" w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>
-      </w:SectPr></w:Body>
-    </w:Document>
-  </xml>
+  <xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument></xml>
   <![endif]-->
   <style>
-    @page { margin: 25.4mm 19.05mm; }
+    <!--
+    /* やや狭い: top/bottom=25.4mm(72pt), left/right=19.05mm(54pt) */
+    @page Section1 {
+      size:595.3pt 841.9pt;
+      margin:72.0pt 54.0pt 72.0pt 54.0pt;
+      mso-header-margin:36.0pt;
+      mso-footer-margin:36.0pt;
+      mso-paper-source:0;
+    }
+    div.Section1 { page:Section1; }
+    -->
     body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 11pt; margin: 0; padding: 0; }
     table { border-collapse: collapse; width: 100%; }
     thead { display: table-header-group; }
@@ -323,8 +326,10 @@ const ExportManager = (() => {
   </style>
 </head>
 <body>
+<div class="Section1">
   <h1 style="font-size:18pt;color:#2c3e50;margin-bottom:12pt;">${title}</h1>
   ${bodyHtml}
+</div>
 </body>
 </html>`;
   }
