@@ -286,24 +286,42 @@ const App = (() => {
     const sportTags = sports.map(s =>
       `<span class="tag" style="background:${s.color}">${s.shortName || s.name}</span>`).join('') || '<span class="text-muted">未割当</span>';
 
-    // Build tabs for each sport
+    // Sport filter checkboxes (all selected by default)
+    const filterBar = sports.length > 0 ? `
+      <div class="hotel-sport-filter" id="hotel-filter-${hotelId}">
+        <span class="filter-label">表示競技:</span>
+        ${sports.map(s => `
+          <label class="filter-chip">
+            <input type="checkbox" checked data-sport-id="${s.id}"
+              onchange="App.updateHotelFilter('${hotelId}')">
+            <span style="background:${s.color}">${s.shortName || s.name}</span>
+          </label>`).join('')}
+      </div>` : '';
+
+    // Tab bar: "全競技" combined view + individual sports
     const tabBar = sports.length > 0 ? `
       <div class="tab-bar" id="hotel-tab-bar">
-        ${sports.map((s, i) => `
-          <button class="tab-btn ${i===0?'active':''}" onclick="App.switchHotelTab('${s.id}')">
+        <button class="tab-btn active" data-tab-target="__all__" onclick="App.switchHotelTab('__all__')">全競技</button>
+        ${sports.map(s => `
+          <button class="tab-btn" data-tab-target="${s.id}" onclick="App.switchHotelTab('${s.id}')">
             ${s.shortName || s.name}
           </button>`).join('')}
-      </div>` : '<p class="text-muted">この ホテルに割り当てられた競技はありません。</p>';
+      </div>` : '<p class="text-muted">このホテルに割り当てられた競技はありません。</p>';
 
-    const tabPanels = sports.map((s, i) => {
-      const dr    = DataManager.getDateRange();
-      const start = s.startDate || dr.start;
-      const end   = s.endDate   || dr.end;
-      return `
-        <div class="tab-panel ${i===0?'active':''}" id="hotel-tab-${s.id}">
-          <div id="hotel-schedule-${s.id}"></div>
-        </div>`;
-    }).join('');
+    // Combined view panel (shown first by default)
+    const allSportIds = sports.map(s => s.id);
+    const combinedPanel = `
+      <div class="tab-panel active" id="hotel-tab-__all__">
+        <div id="hotel-combined-schedule-${hotelId}">
+          ${_renderCombinedScheduleHTML(hotelId, sports, allSportIds)}
+        </div>
+      </div>`;
+
+    // Individual sport panels (hidden by default)
+    const tabPanels = sports.map(s => `
+      <div class="tab-panel" id="hotel-tab-${s.id}">
+        <div id="hotel-schedule-${s.id}"></div>
+      </div>`).join('');
 
     container.innerHTML = `
       <div class="detail-header">
@@ -338,7 +356,9 @@ const App = (() => {
       <div class="card">
         <div class="card-header"><h2>📅 タイムスケジュール</h2></div>
         <div class="card-body" style="padding:10px">
+          ${filterBar}
           ${tabBar}
+          ${combinedPanel}
           ${tabPanels}
         </div>
       </div>
@@ -366,29 +386,154 @@ const App = (() => {
         </div>
       </div>`;
 
-    // Init only the first (active) tab's grid; others are initialized on tab switch
-    if (sports.length > 0) {
-      const s     = sports[0];
-      const dr    = DataManager.getDateRange();
-      const start = s.startDate || dr.start;
-      const end   = s.endDate   || dr.end;
-      ScheduleGrid.init(`hotel-schedule-${s.id}`, s.id, start, end, hotelId);
+    // Init scroll sync for combined view; individual sport grids init on tab switch
+    _initCombinedScrollSync(document.getElementById(`hotel-combined-schedule-${hotelId}`));
+  }
+
+  // ── Combined multi-sport hotel schedule ──────────────────────────────────
+  function _renderCombinedScheduleHTML(hotelId, sports, visibleSportIds) {
+    const SLOT_HEIGHT = 40;
+    const START_HOUR  = 6;
+    const END_HOUR    = 24;
+
+    const visibleSports = sports.filter(s => visibleSportIds.includes(s.id));
+    if (visibleSports.length === 0) {
+      return '<p class="text-muted text-center" style="padding:20px">表示する競技を選択してください</p>';
+    }
+
+    const dr       = DataManager.getDateRange();
+    const allDates = DataManager.getDatesInRange(dr.start, dr.end);
+    // Keep only dates where at least one visible sport is active
+    const dates = allDates.filter(date =>
+      visibleSports.some(s => {
+        const s0 = s.startDate || dr.start;
+        const s1 = s.endDate   || dr.end;
+        return date >= s0 && date <= s1;
+      })
+    );
+    if (dates.length === 0) {
+      return '<p class="text-muted text-center" style="padding:20px">該当する日程がありません</p>';
+    }
+
+    const catMap = {};
+    DataManager.getCategories().forEach(c => { catMap[c.id] = c; });
+
+    function tMin(t)    { const [h,m] = t.split(':').map(Number); return h*60+m; }
+    function top(sMin)  { return ((sMin - START_HOUR*60) / 30) * SLOT_HEIGHT; }
+    function ht(s, e)   { return Math.max(((e-s)/30)*SLOT_HEIGHT, 20); }
+
+    const gh = (END_HOUR - START_HOUR) * 2 * SLOT_HEIGHT;
+
+    // Time labels
+    const timeLabels = [];
+    for (let h = START_HOUR; h < END_HOUR; h++) {
+      timeLabels.push(`<div class="time-slot-label hour">${String(h).padStart(2,'0')}:00</div>`);
+      timeLabels.push(`<div class="time-slot-label"></div>`);
+    }
+
+    // Slot cells (no click action in combined view)
+    function makeCells() {
+      const cells = [];
+      for (let h = START_HOUR; h < END_HOUR; h++) {
+        cells.push(`<div class="time-slot-cell hour-boundary"></div>`);
+        cells.push(`<div class="time-slot-cell"></div>`);
+      }
+      return cells.join('');
+    }
+
+    const headerCells = dates.map(date => {
+      const wd  = DataManager.getWeekday(date);
+      const lbl = DataManager.formatDate(date);
+      const cls = wd === 0 ? 'weekend' : wd === 6 ? 'saturday' : '';
+      return `<div class="date-header-cell ${cls}" data-date="${date}">
+        <div class="date-label">${lbl}</div>
+      </div>`;
+    }).join('');
+
+    const dateCols = dates.map(date => {
+      const blocks = visibleSports.flatMap(sport => {
+        const s0 = sport.startDate || dr.start;
+        const s1 = sport.endDate   || dr.end;
+        if (date < s0 || date > s1) return [];
+        return DataManager.getEvents(sport.id, date).map(ev => {
+          const cat   = catMap[ev.category];
+          const bg    = cat ? cat.color : '#95a5a6';
+          const sMin  = tMin(ev.startTime);
+          const eMin  = tMin(ev.endTime);
+          const safe  = (ev.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          return `<div class="event-block combined-event"
+            style="top:${top(sMin)}px;height:${ht(sMin,eMin)}px;background:${bg};cursor:pointer;"
+            title="${safe}&#10;${sport.shortName||sport.name}"
+            onclick="App.switchHotelTab('${sport.id}')">
+            <div class="combined-sport-badge" style="background:${sport.color}">${sport.shortName||sport.name}</div>
+            <div class="event-time">${ev.startTime}–${ev.endTime}</div>
+            <div class="event-title">${safe}</div>
+          </div>`;
+        });
+      }).join('');
+      return `<div class="date-column" data-date="${date}" style="height:${gh}px;">${makeCells()}${blocks}</div>`;
+    }).join('');
+
+    const tw = 60 + dates.length * 130;
+    return `
+      <div class="combined-hint">クリックで各競技の編集タブに移動します</div>
+      <div class="scroll-mirror-top" id="combined-mirror-top-${hotelId}">
+        <div style="width:${tw}px;height:1px"></div>
+      </div>
+      <div class="schedule-wrapper" id="combined-wrapper-${hotelId}">
+        <div class="schedule-container">
+          <div class="schedule-header">
+            <div class="time-col" style="width:60px;min-width:60px;"></div>
+            ${headerCells}
+          </div>
+          <div class="schedule-body">
+            <div class="time-col-body" style="width:60px;min-width:60px;">${timeLabels.join('')}</div>
+            <div class="schedule-grid">${dateCols}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function _initCombinedScrollSync(container) {
+    if (!container) return;
+    const wrapper = container.querySelector('.schedule-wrapper');
+    const mirror  = container.querySelector('.scroll-mirror-top');
+    if (!wrapper || !mirror) return;
+    let syncing = false;
+    mirror.addEventListener('scroll', () => {
+      if (syncing) return; syncing = true; wrapper.scrollLeft = mirror.scrollLeft; syncing = false;
+    });
+    wrapper.addEventListener('scroll', () => {
+      if (syncing) return; syncing = true; mirror.scrollLeft = wrapper.scrollLeft; syncing = false;
+    });
+  }
+
+  function updateHotelFilter(hotelId) {
+    const sports    = DataManager.getSportsForHotel(hotelId);
+    const filterEl  = document.getElementById(`hotel-filter-${hotelId}`);
+    if (!filterEl) return;
+    const visible   = [];
+    filterEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      if (cb.checked && cb.dataset.sportId) visible.push(cb.dataset.sportId);
+    });
+    const combinedEl = document.getElementById(`hotel-combined-schedule-${hotelId}`);
+    if (combinedEl) {
+      combinedEl.innerHTML = _renderCombinedScheduleHTML(hotelId, sports, visible);
+      _initCombinedScrollSync(combinedEl);
     }
   }
 
   function switchHotelTab(sportId) {
-    // Find the current hotel context by looking at active hotel tab panels
     const hotelId = _currentHotelId;
     document.querySelectorAll('#hotel-tab-bar .tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.textContent.trim() === (DataManager.getSport(sportId)?.shortName || sportId));
+      btn.classList.toggle('active', btn.dataset.tabTarget === sportId);
     });
     document.querySelectorAll('[id^="hotel-tab-"]').forEach(p => {
-      // Only switch panels under the hotel schedule (not facility tabs)
       if (!p.id.startsWith('fac-tab-')) {
         p.classList.toggle('active', p.id === `hotel-tab-${sportId}`);
       }
     });
-    // Re-init ScheduleGrid with the correct sportId for this tab
+    if (sportId === '__all__') return; // combined view needs no ScheduleGrid init
     const sport = DataManager.getSport(sportId);
     if (sport) {
       const dr    = DataManager.getDateRange();
@@ -1642,7 +1787,7 @@ const App = (() => {
 
   return {
     init, navigate, renderView, renderSidebar,
-    switchHotelTab, switchTab,
+    switchHotelTab, switchTab, updateHotelFilter,
     addGroup, deleteGroup, updateGroupTeams,
     addMatch, deleteMatch, updateMatch, updateVenueHotel,
     showSportSettingsModal, closeSportSettingsModal, saveSportSettings,
