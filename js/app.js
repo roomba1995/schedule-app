@@ -1068,12 +1068,19 @@ const App = (() => {
                   <th>滞在開始</th>
                   <th>滞在終了</th>
                   <th>割当ホテル</th>
+                  <th>日程区分</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 ${DataManager.getSports().map(s => {
                   const hotels = DataManager.getHotelsForSport(s.id);
+                  const hasDates = s.startDate && s.endDate;
+                  const dayTypeBtn = s.isSoccer
+                    ? `<span style="font-size:11px;color:#aaa">対象外</span>`
+                    : hasDates
+                      ? `<button class="btn btn-secondary btn-sm" onclick="App.showDayTypesModal('${s.id}')">🗓 日程区分</button>`
+                      : `<span style="font-size:11px;color:#aaa">日程設定後に利用可</span>`;
                   return `
                     <tr>
                       <td style="padding:8px 10px">
@@ -1095,6 +1102,7 @@ const App = (() => {
                           ? '(会場により異なる)'
                           : hotels.map(h => `<span class="tag" style="background:${h.color};font-size:11px">${h.name}</span>`).join('') || '未設定'}
                       </td>
+                      <td style="padding:8px 10px">${dayTypeBtn}</td>
                       <td style="padding:8px 10px">
                         <a href="#sport/${s.id}" class="btn btn-secondary btn-sm">詳細</a>
                       </td>
@@ -1218,6 +1226,184 @@ const App = (() => {
     closeSportSettingsModal();
     navigate(`sport/${sportId}`);
     showToast('設定を保存しました');
+  }
+
+  // ── Day Types Modal ───────────────────────────────────────────────────────
+  let _dayTypePaint = 'competition'; // currently selected paint type
+
+  const DAY_TYPE_DEFS = [
+    { value: 'checkin',     label: 'チェックイン',   short: 'CI',  bg: '#d6eaf8', border: '#2980b9' },
+    { value: 'practice',    label: '練習日',         short: '練習', bg: '#d5f5e3', border: '#27ae60' },
+    { value: 'competition', label: '競技日',         short: '競技', bg: '#fde8d8', border: '#e67e22' },
+    { value: 'stay',        label: '滞在日',         short: '滞在', bg: '#f2f3f4', border: '#95a5a6' },
+    { value: 'checkout',    label: 'チェックアウト', short: 'CO',  bg: '#e8daef', border: '#8e44ad' },
+  ];
+
+  function showDayTypesModal(sportId) {
+    const sport = DataManager.getSport(sportId);
+    if (!sport) return;
+    if (!sport.startDate || !sport.endDate) {
+      alert('先に滞在開始日・終了日を設定してください');
+      return;
+    }
+    _dayTypePaint = 'competition';
+    _renderDayTypesModal(sportId);
+  }
+
+  function _renderDayTypesModal(sportId) {
+    const existing = document.getElementById('day-types-modal');
+    if (existing) existing.remove();
+
+    const sport = DataManager.getSport(sportId);
+    const dates = DataManager.getDatesInRange(sport.startDate, sport.endDate);
+
+    // Build palette buttons
+    const palette = DAY_TYPE_DEFS.map(d => `
+      <button id="dtp-btn-${d.value}" class="dt-palette-btn ${_dayTypePaint === d.value ? 'active' : ''}"
+              style="background:${d.bg};border-color:${d.border}"
+              onclick="App.selectDayTypePaint('${d.value}','${sportId}')">
+        ${d.label}
+      </button>`).join('');
+
+    // Build date cells grouped in weeks (rows of 7)
+    const WEEKDAYS = ['日','月','火','水','木','金','土'];
+    let cellsHtml = '';
+    // pad so first date lines up with correct weekday column
+    const firstWd = DataManager.getWeekday(dates[0]);
+    for (let i = 0; i < firstWd; i++) cellsHtml += '<div class="dt-cell dt-cell-pad"></div>';
+    dates.forEach(date => {
+      const type = DataManager.getDayType(sportId, date);
+      const def  = DAY_TYPE_DEFS.find(d => d.value === type);
+      const wd   = DataManager.getWeekday(date);
+      const wdLabel = WEEKDAYS[wd];
+      const wdCls = wd === 0 ? 'dt-sun' : wd === 6 ? 'dt-sat' : '';
+      const d = new Date(date);
+      const dateLabel = `${d.getMonth()+1}/${d.getDate()}`;
+      cellsHtml += `
+        <div class="dt-cell ${wdCls}" id="dtcell-${date}"
+             data-type="${type||''}"
+             style="${def ? `background:${def.bg};border-color:${def.border}` : ''}"
+             onclick="App.paintDayType('${date}','${sportId}')">
+          <div class="dt-cell-wd ${wdCls}">${wdLabel}</div>
+          <div class="dt-cell-date">${dateLabel}</div>
+          <div class="dt-cell-type">${def ? def.short : ''}</div>
+        </div>`;
+    });
+
+    const html = `
+      <div class="modal-overlay" id="day-types-modal" onclick="if(event.target===this)App.closeDayTypesModal()">
+        <div class="modal" style="max-width:720px;width:95%">
+          <div class="modal-header">
+            <h3>🗓 ${sport.name} — 日程区分設定</h3>
+            <button class="modal-close" onclick="App.closeDayTypesModal()">×</button>
+          </div>
+          <div class="modal-body" style="padding:16px">
+            <p style="font-size:13px;color:#7f8c8d;margin:0 0 12px">
+              区分を選んで日付をクリックすると色が塗られます。同じ区分をもう一度クリックするとクリアできます。
+            </p>
+            <!-- Palette -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center">
+              <span style="font-size:13px;font-weight:600;margin-right:4px">塗る区分：</span>
+              ${palette}
+            </div>
+            <!-- Quick actions -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+              <button class="btn btn-secondary btn-sm" onclick="App.fillRemainingAsDayType('${sportId}','stay')">
+                空白を全て「滞在日」に設定
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="App.clearAllDayTypes('${sportId}')">
+                🗑 全てクリア
+              </button>
+            </div>
+            <!-- Date grid -->
+            <div class="dt-grid">
+              <div class="dt-week-header">
+                ${['日','月','火','水','木','金','土'].map(d=>`<div class="dt-wh dt-${d==='日'?'sun':d==='土'?'sat':''}">${d}</div>`).join('')}
+              </div>
+              <div class="dt-cells" id="dt-cells-${sportId}">
+                ${cellsHtml}
+              </div>
+            </div>
+            <!-- Legend -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:12px">
+              ${DAY_TYPE_DEFS.map(d=>`
+                <span style="display:flex;align-items:center;gap:4px">
+                  <span style="width:14px;height:14px;border-radius:3px;background:${d.bg};border:1px solid ${d.border};display:inline-block"></span>
+                  ${d.label}
+                </span>`).join('')}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" onclick="App.closeDayTypesModal()">閉じる</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function closeDayTypesModal() {
+    const m = document.getElementById('day-types-modal');
+    if (m) m.remove();
+  }
+
+  function selectDayTypePaint(type, sportId) {
+    _dayTypePaint = type;
+    // update palette button highlights
+    DAY_TYPE_DEFS.forEach(d => {
+      const btn = document.getElementById(`dtp-btn-${d.value}`);
+      if (btn) btn.classList.toggle('active', d.value === type);
+    });
+  }
+
+  function paintDayType(date, sportId) {
+    const cell = document.getElementById(`dtcell-${date}`);
+    const currentType = cell ? cell.dataset.type : DataManager.getDayType(sportId, date);
+    // If clicking the same type again → clear
+    const newType = currentType === _dayTypePaint ? '' : _dayTypePaint;
+    DataManager.setDayType(sportId, date, newType);
+    if (cell) {
+      const def = DAY_TYPE_DEFS.find(d => d.value === newType);
+      cell.dataset.type = newType;
+      cell.style.background = def ? def.bg : '';
+      cell.style.borderColor = def ? def.border : '';
+      cell.querySelector('.dt-cell-type').textContent = def ? def.short : '';
+    }
+  }
+
+  function fillRemainingAsDayType(sportId, type) {
+    const sport = DataManager.getSport(sportId);
+    if (!sport || !sport.startDate || !sport.endDate) return;
+    const dates = DataManager.getDatesInRange(sport.startDate, sport.endDate);
+    dates.forEach(date => {
+      if (!DataManager.getDayType(sportId, date)) {
+        DataManager.setDayType(sportId, date, type);
+        const cell = document.getElementById(`dtcell-${date}`);
+        if (cell) {
+          const def = DAY_TYPE_DEFS.find(d => d.value === type);
+          cell.dataset.type = type;
+          cell.style.background = def ? def.bg : '';
+          cell.style.borderColor = def ? def.border : '';
+          cell.querySelector('.dt-cell-type').textContent = def ? def.short : '';
+        }
+      }
+    });
+  }
+
+  function clearAllDayTypes(sportId) {
+    if (!confirm('この競技の日程区分を全てクリアしますか？')) return;
+    const sport = DataManager.getSport(sportId);
+    if (!sport || !sport.startDate || !sport.endDate) return;
+    const dates = DataManager.getDatesInRange(sport.startDate, sport.endDate);
+    dates.forEach(date => {
+      DataManager.setDayType(sportId, date, '');
+      const cell = document.getElementById(`dtcell-${date}`);
+      if (cell) {
+        cell.dataset.type = '';
+        cell.style.background = '';
+        cell.style.borderColor = '';
+        cell.querySelector('.dt-cell-type').textContent = '';
+      }
+    });
   }
 
   // ── Hotel Settings Modal ───────────────────────────────────────────────────
@@ -1460,6 +1646,8 @@ const App = (() => {
     addGroup, deleteGroup, updateGroupTeams,
     addMatch, deleteMatch, updateMatch, updateVenueHotel,
     showSportSettingsModal, closeSportSettingsModal, saveSportSettings,
+    showDayTypesModal, closeDayTypesModal, selectDayTypePaint,
+    paintDayType, fillRemainingAsDayType, clearAllDayTypes,
     showHotelSettingsModal, closeHotelSettingsModal, saveHotelSettings,
     switchFacilitiesTab, downloadRoomsTemplate, uploadRoomsFile,
     showGuestRoomModal, closeGuestRoomModal, saveGuestRoomFromModal, deleteGuestRoomConfirm,
