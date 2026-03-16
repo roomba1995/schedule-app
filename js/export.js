@@ -523,7 +523,6 @@ const ExportManager = (() => {
 </head>
 <body>
 <div class="Section1">
-  <h1 style="font-size:18pt;color:#2c3e50;margin-bottom:12pt;">${title}</h1>
   ${bodyHtml}
 </div>
 </body>
