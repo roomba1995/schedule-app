@@ -33,20 +33,30 @@ const DataManager = (() => {
       if (newSports.length > 0) {
         master.sports = (master.sports || []).concat(newSports);
       }
-      // Sync shortName/name changes from embedded master into saved data
+      // Sync shortName/name/color changes from embedded master into saved data
       (master.sports || []).forEach(s => {
         const embedded = (EMBEDDED_MASTER.sports || []).find(e => e.id === s.id);
-        if (embedded && (s.shortName !== embedded.shortName || s.name !== embedded.name)) {
-          s.shortName = embedded.shortName;
-          s.name = embedded.name;
-          changed = true;
+        if (embedded) {
+          if (s.shortName !== embedded.shortName || s.name !== embedded.name || s.color !== embedded.color) {
+            s.shortName = embedded.shortName;
+            s.name = embedded.name;
+            s.color = embedded.color;
+            changed = true;
+          }
         }
       });
-      // Hard override: ensure soccer_w shortName is always up to date
-      // (guards against browser-cached master-data.js having the old value)
-      const soccerSport = (master.sports || []).find(s => s.id === 'soccer_w');
-      if (soccerSport && soccerSport.shortName !== 'サッカー（女子）') {
-        soccerSport.shortName = 'サッカー（女子）';
+      // Always sync eventCategories from embedded master (colors, names)
+      if (EMBEDDED_MASTER.eventCategories) {
+        const savedCats = master.eventCategories || [];
+        const mergedCats = EMBEDDED_MASTER.eventCategories.map(ec => {
+          const saved = savedCats.find(c => c.id === ec.id);
+          return saved ? { ...saved, color: ec.color, name: ec.name } : ec;
+        });
+        // add any saved categories not in embedded master
+        savedCats.forEach(c => {
+          if (!EMBEDDED_MASTER.eventCategories.find(e => e.id === c.id)) mergedCats.push(c);
+        });
+        master.eventCategories = mergedCats;
         changed = true;
       }
       if (changed) _saveMaster();
