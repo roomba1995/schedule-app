@@ -201,18 +201,17 @@ const ExportManager = (() => {
   };
 
   function buildWordHTML(sport, dates, pageBreak = false) {
-    const TH = 'background:#2c3e50;color:white;padding:5px 7px;font-size:10pt;border:1px solid #1a252f;text-align:center;';
+    const TH = 'background:#2c3e50;color:white;padding:5px 7px;font-size:10pt;border:1pt solid #1a252f;text-align:center;';
 
-    // Returns inline style for a body cell.
-    // isFirstInDay → thick top border (day separator); otherwise no top border.
-    function cs(isFirstInDay, opts) {
-      const borderTop = isFirstInDay ? '2px solid #2c3e50' : 'none';
-      const padding   = opts && opts.time ? 'padding:3px 5px;' : 'padding:4px 7px;';
-      const fontSize  = opts && opts.time ? 'font-size:8pt;'   : 'font-size:9pt;';
-      const align     = opts && opts.time ? 'text-align:center;vertical-align:middle;' : 'vertical-align:top;';
-      const nowrap    = opts && opts.nowrap ? 'white-space:nowrap;' : '';
-      return `border-top:${borderTop};border-bottom:none;border-left:1px solid #c0c0c0;border-right:1px solid #c0c0c0;${padding}${fontSize}${align}${nowrap}line-height:1.5;`;
-    }
+    // Data cells: visible left/right column separators, white top/bottom (invisible on white bg)
+    const SIDE  = '1pt solid #c0c0c0';
+    const INVIS = '1pt solid white';   // "invisible" border – overridden by separator row's 3pt border
+    const TD_DATA = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:4px 7px;font-size:9pt;vertical-align:top;line-height:1.5;background:white;`;
+    const TD_TIME = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:3px 5px;font-size:8pt;text-align:center;vertical-align:middle;line-height:1.5;background:white;`;
+    const TD_DATE = `border-top:${INVIS};border-bottom:${INVIS};border-left:${SIDE};border-right:${SIDE};padding:4px 7px;font-size:9pt;vertical-align:top;white-space:nowrap;line-height:1.5;background:white;`;
+
+    // Day separator row: dark band rendered between days
+    const DAY_SEP = `<tr><td colspan="3" style="height:4pt;padding:0;background:#2c3e50;border:3pt solid #2c3e50;font-size:1pt;line-height:4pt;mso-line-height-alt:4pt;"> </td></tr>`;
 
     // Category color map
     const cats = DataManager.getCategories();
@@ -226,7 +225,8 @@ const ExportManager = (() => {
     // Build rows per day
     let tableRows = '';
 
-    for (const date of dates) {
+    for (let di = 0; di < dates.length; di++) {
+      const date   = dates[di];
       const events = DataManager.getEvents(sport.id, date);
       const [y, mo, d] = date.split('-');
       const dow = ['日','月','火','水','木','金','土'][new Date(date).getDay()];
@@ -238,20 +238,22 @@ const ExportManager = (() => {
         ? `${dateLabel}<br><span style="font-size:8pt;color:#555;">${dayTypeLabel}</span>`
         : dateLabel;
 
+      // Dark separator row between days (not before the first day)
+      if (di > 0) tableRows += DAY_SEP;
+
       if (events.length === 0) {
         tableRows += `
           <tr>
-            <td style="${cs(true, {nowrap:true})}">${dateCellText}</td>
-            <td style="${cs(true, {time:true})}"></td>
-            <td style="${cs(true)}"></td>
+            <td style="${TD_DATE}">${dateCellText}</td>
+            <td style="${TD_TIME}"></td>
+            <td style="${TD_DATA}"></td>
           </tr>`;
         continue;
       }
 
       events.forEach((ev, i) => {
-        const isFirst  = i === 0;
-        const cat      = catMap[ev.category];
-        const evColor  = ev.color || (cat ? cat.color : null);
+        const cat     = catMap[ev.category];
+        const evColor = ev.color || (cat ? cat.color : null);
 
         const titleHtml = evColor
           ? `<span style="color:${evColor};font-weight:bold;">${ev.title}</span>`
@@ -269,18 +271,18 @@ const ExportManager = (() => {
         }
         const activity = parts.join('');
 
-        if (isFirst) {
+        if (i === 0) {
           tableRows += `
             <tr>
-              <td rowspan="${events.length}" style="${cs(true, {nowrap:true})}">${dateCellText}</td>
-              <td style="${cs(true, {time:true})}">${timeStr}</td>
-              <td style="${cs(true)}">${activity}</td>
+              <td rowspan="${events.length}" style="${TD_DATE}">${dateCellText}</td>
+              <td style="${TD_TIME}">${timeStr}</td>
+              <td style="${TD_DATA}">${activity}</td>
             </tr>`;
         } else {
           tableRows += `
             <tr>
-              <td style="${cs(false, {time:true})}">${timeStr}</td>
-              <td style="${cs(false)}">${activity}</td>
+              <td style="${TD_TIME}">${timeStr}</td>
+              <td style="${TD_DATA}">${activity}</td>
             </tr>`;
         }
       });
@@ -295,11 +297,11 @@ const ExportManager = (() => {
       <p style="text-align:center;font-size:15pt;font-weight:bold;margin:0 0 10pt;">行動計画表（ドラフト）</p>
       <p style="font-size:10pt;font-weight:bold;margin:0 0 3pt;">競技：${sport.name}</p>
       ${hotelName ? `<p style="font-size:10pt;font-weight:bold;margin:0 0 10pt;">宿泊施設：${hotelName}</p>` : '<p style="margin:0 0 10pt;"></p>'}
-      <table style="border-collapse:collapse;width:100%;font-family:'Meiryo','Yu Gothic',sans-serif;border:2px solid #2c3e50;">
+      <table cellspacing="0" style="border-collapse:collapse;width:100%;font-family:'Meiryo','Yu Gothic',sans-serif;border:2pt solid #2c3e50;">
         <thead>
           <tr>
             <th style="${TH}width:82pt;">年月日</th>
-            <th style="${TH}width:58pt;">予定時間</th>
+            <th style="${TH}width:56pt;">予定時間</th>
             <th style="${TH}">行動予定</th>
           </tr>
         </thead>
