@@ -315,10 +315,11 @@ const ExportManager = (() => {
 
   // ── Timetable XLSX export (time rows × date×sport columns) ──────────────
   function exportTimetableXLS(sportIds) {
-    if (typeof XLSX === 'undefined') {
-      alert('ExcelライブラリがロードされていないのでExcelエクスポートができません。');
-      return;
-    }
+    // Use XLSXStyle (xlsx-js-style) for full cell styling support
+    const XS = (typeof XLSXStyle !== 'undefined') ? XLSXStyle
+             : (typeof XLSX     !== 'undefined') ? XLSX : null;
+    if (!XS) { alert('ExcelライブラリがロードされていないのでExcelエクスポートができません。'); return; }
+
     const sports = sportIds.map(id => DataManager.getSport(id)).filter(Boolean);
     if (sports.length === 0) { alert('競技を選択してください。'); return; }
 
@@ -347,39 +348,60 @@ const ExportManager = (() => {
       }
     }
 
-    function eventsInSlot(sportId, date, slotMin) {
-      return (evCache[sportId][date] || []).filter(ev => {
+    // Returns the event that starts in this 30-min slot
+    function eventStartingAt(sportId, date, slotMin) {
+      return (evCache[sportId][date] || []).find(ev => {
         const s = timeToMinutes(ev.startTime);
         return s >= slotMin && s < slotMin + SLOT;
-      });
+      }) || null;
+    }
+
+    // Returns the event covering this slot (started at or before, ends after)
+    function eventCovering(sportId, date, slotMin) {
+      return (evCache[sportId][date] || []).find(ev => {
+        const s = timeToMinutes(ev.startTime);
+        const e = timeToMinutes(ev.endTime);
+        return s <= slotMin && e > slotMin;
+      }) || null;
+    }
+
+    // hex color → 6-char RRGGBB (uppercase)
+    function toRGB(hex) {
+      if (!hex) return null;
+      const h = hex.replace('#', '');
+      return (h.length === 3
+        ? h[0]+h[0]+h[1]+h[1]+h[2]+h[2]
+        : h.substring(0, 6)).toUpperCase();
+    }
+
+    function fgForBg(hex) {
+      try { return _lightOrDark(hex) === 'light' ? '1A1A1A' : 'FFFFFF'; }
+      catch(e) { return 'FFFFFF'; }
     }
 
     const S = sports.length;
 
-    // Build 2D array: row0=date headers, row1=sport sub-headers, rows2+=time slots
+    // ── Build 2D array ──────────────────────────────────────────────────────
     const aoa = [];
 
-    // Row 0: date headers
+    // Row 0: "時刻" + date labels (first cell of each date group, rest blank)
     const row0 = ['時刻'];
     for (const date of dates) {
       const [, mo, d] = date.split('-');
       const dow = ['日','月','火','水','木','金','土'][new Date(date).getDay()];
       row0.push(`${Number(mo)}/${Number(d)}（${dow}）`);
-      for (let si = 1; si < S; si++) row0.push(null);
+      for (let si = 1; si < S; si++) row0.push('');
     }
     aoa.push(row0);
 
-    // Row 1: sport sub-headers
-    const row1 = [null];
+    // Row 1: blank + sport sub-headers
+    const row1 = [''];
     for (const date of dates) {
-      for (const sport of sports) {
-        row1.push(sport.shortName || sport.name);
-      }
+      for (const sport of sports) row1.push(sport.shortName || sport.name);
     }
     aoa.push(row1);
 
-    // Time slot rows
-    const skipMap = dates.map(() => sports.map(() => 0));
+    // Rows 2+: time slots
     for (const slotMin of slots) {
       const hh = String(Math.floor(slotMin / 60)).padStart(2, '0');
       const mm = String(slotMin % 60).padStart(2, '0');
@@ -388,16 +410,11 @@ const ExportManager = (() => {
         const date = dates[di];
         for (let si = 0; si < S; si++) {
           const sport = sports[si];
-          if (skipMap[di][si] > 0) { skipMap[di][si]--; row.push(null); continue; }
-          const evs = eventsInSlot(sport.id, date, slotMin);
-          if (evs.length > 0) {
-            const ev = evs[0];
-            const durMins = timeToMinutes(ev.endTime) - timeToMinutes(ev.startTime);
-            const rowspan = Math.max(1, Math.ceil(durMins / SLOT));
-            skipMap[di][si] = rowspan - 1;
-            const locParts = [ev.floor ? `${ev.floor}F` : '', ev.location || ''].filter(Boolean);
+          const startEv = eventStartingAt(sport.id, date, slotMin);
+          if (startEv) {
+            const locParts = [startEv.floor ? `${startEv.floor}F` : '', startEv.location || ''].filter(Boolean);
             const loc = locParts.length ? `\n${locParts.join(' ')}` : '';
-            row.push(`${ev.startTime}–${ev.endTime}\n${ev.title}${loc}`);
+            row.push(`${startEv.startTime}–${startEv.endTime}\n${startEv.title}${loc}`);
           } else {
             row.push('');
           }
@@ -406,52 +423,140 @@ const ExportManager = (() => {
       aoa.push(row);
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const ws = XS.utils.aoa_to_sheet(aoa);
 
-    // Merges
-    const merges = [];
-    // Time column header spans rows 0-1
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } });
-    // Date headers span S columns each
+    // ── Apply styles ────────────────────────────────────────────────────────
+    function mkBorder(left, top, right, bottom) {
+      const B = (style, rgb) => ({ style, color: { rgb } });
+      return {
+        left:   B(...left),
+        top:    B(...top),
+        right:  B(...right),
+        bottom: B(...bottom),
+      };
+    }
+    const THIN   = ['thin',   'CCCCCC'];
+    const MED    = ['medium', '000000'];
+    const HOUR   = ['medium', 'AAAAAA'];
+
+    // Row 0: date header row
+    const r0TimeStyle = {
+      fill: { fgColor: { rgb: '2C3E50' } },
+      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11, name: 'Meiryo' },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: mkBorder(MED, MED, MED, MED),
+    };
+    const r0Cell = XS.utils.encode_cell({ r: 0, c: 0 });
+    if (!ws[r0Cell]) ws[r0Cell] = { t: 's', v: '時刻' };
+    ws[r0Cell].s = r0TimeStyle;
+
     for (let di = 0; di < dates.length; di++) {
-      if (S > 1) {
-        const c = 1 + di * S;
-        merges.push({ s: { r: 0, c }, e: { r: 0, c: c + S - 1 } });
+      for (let si = 0; si < S; si++) {
+        const c = 1 + di * S + si;
+        const addr = XS.utils.encode_cell({ r: 0, c });
+        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        const leftB  = (si === 0) ? MED : THIN;
+        const rightB = (si === S - 1) ? MED : THIN;
+        ws[addr].s = {
+          fill: { fgColor: { rgb: '2C3E50' } },
+          font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11, name: 'Meiryo' },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: mkBorder(leftB, MED, rightB, MED),
+        };
       }
     }
-    // Event rowspan merges
-    const skipMap2 = dates.map(() => sports.map(() => 0));
+
+    // Row 1: sport sub-header row
+    const r1TimeAddr = XS.utils.encode_cell({ r: 1, c: 0 });
+    if (!ws[r1TimeAddr]) ws[r1TimeAddr] = { t: 's', v: '' };
+    ws[r1TimeAddr].s = r0TimeStyle;
+
+    for (let di = 0; di < dates.length; di++) {
+      for (let si = 0; si < S; si++) {
+        const c = 1 + di * S + si;
+        const addr = XS.utils.encode_cell({ r: 1, c });
+        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        const sport  = sports[si];
+        const bg     = toRGB(sport.color) || '7F8C8D';
+        const leftB  = (si === 0) ? MED : THIN;
+        const rightB = (si === S - 1) ? MED : THIN;
+        ws[addr].s = {
+          fill: { fgColor: { rgb: bg } },
+          font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 9, name: 'Meiryo' },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: mkBorder(leftB, THIN, rightB, MED),
+        };
+      }
+    }
+
+    // Rows 2+: data rows
     for (let ri = 0; ri < slots.length; ri++) {
-      const slotMin = slots[ri];
+      const slotMin  = slots[ri];
+      const r        = ri + 2;
+      const isHour   = slotMin % 60 === 0;
+      const isLast   = ri === slots.length - 1;
+      const topB     = isHour ? HOUR : THIN;
+      const botB     = isLast ? MED  : THIN;
+
+      // Time column
+      const timeAddr = XS.utils.encode_cell({ r, c: 0 });
+      if (!ws[timeAddr]) ws[timeAddr] = { t: 's', v: '' };
+      ws[timeAddr].s = {
+        fill: { fgColor: { rgb: isHour ? 'D5DCE4' : 'F4F6F7' } },
+        font: { bold: isHour, sz: isHour ? 9 : 8, color: { rgb: isHour ? '2C3E50' : '888888' }, name: 'Meiryo' },
+        alignment: { horizontal: 'center', vertical: 'top' },
+        border: mkBorder(MED, topB, MED, botB),
+      };
+
       for (let di = 0; di < dates.length; di++) {
-        const date = dates[di];
+        const date   = dates[di];
         for (let si = 0; si < S; si++) {
-          if (skipMap2[di][si] > 0) { skipMap2[di][si]--; continue; }
-          const evs = eventsInSlot(sports[si].id, date, slotMin);
-          if (evs.length > 0) {
-            const ev = evs[0];
-            const durMins = timeToMinutes(ev.endTime) - timeToMinutes(ev.startTime);
-            const rowspan = Math.max(1, Math.ceil(durMins / SLOT));
-            skipMap2[di][si] = rowspan - 1;
-            if (rowspan > 1) {
-              const r = ri + 2;
-              const c = 1 + di * S + si;
-              merges.push({ s: { r, c }, e: { r: r + rowspan - 1, c } });
-            }
+          const sport  = sports[si];
+          const c      = 1 + di * S + si;
+          const addr   = XS.utils.encode_cell({ r, c });
+          if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+
+          const leftB  = (si === 0) ? MED  : THIN;
+          const rightB = (si === S - 1) ? MED : THIN;
+
+          const covEv  = eventCovering(sport.id, date, slotMin);
+          if (covEv) {
+            const cat    = catMap[covEv.category];
+            const bgHex  = covEv.color || (cat ? cat.color : '#95a5a6');
+            const bgRGB  = toRGB(bgHex) || '95A5A6';
+            const fgRGB  = fgForBg(bgHex);
+            ws[addr].s = {
+              fill: { fgColor: { rgb: bgRGB } },
+              font: { sz: 8, color: { rgb: fgRGB }, name: 'Meiryo', bold: true },
+              alignment: { wrapText: true, vertical: 'top' },
+              border: mkBorder(leftB, topB, rightB, botB),
+            };
+          } else {
+            ws[addr].s = {
+              fill: { fgColor: { rgb: 'FFFFFF' } },
+              font: { sz: 8, color: { rgb: '000000' }, name: 'Meiryo' },
+              alignment: { wrapText: false, vertical: 'top' },
+              border: mkBorder(leftB, topB, rightB, botB),
+            };
           }
         }
       }
     }
-    ws['!merges'] = merges;
 
-    // Column widths
-    ws['!cols'] = [{ wch: 6 }, ...Array(dates.length * S).fill({ wch: 18 })];
-    // Row heights
-    ws['!rows'] = [{ hpt: 20 }, { hpt: 16 }];
+    // No merges
+    ws['!merges'] = [];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'タイムテーブル');
-    XLSX.writeFile(wb, `timetable_${dr.start}_${dr.end}.xlsx`);
+    // Column widths & row heights
+    ws['!cols'] = [{ wch: 6 }, ...Array(dates.length * S).fill(null).map(() => ({ wch: 16 }))];
+    ws['!rows'] = [
+      { hpt: 22 },
+      { hpt: 16 },
+      ...slots.map(m => ({ hpt: m % 60 === 0 ? 20 : 14 })),
+    ];
+
+    const wb = XS.utils.book_new();
+    XS.utils.book_append_sheet(wb, ws, 'タイムテーブル');
+    XS.writeFile(wb, `timetable_${dr.start}_${dr.end}.xlsx`);
   }
 
   function exportSelectedSportsToWord(sportIds) {
