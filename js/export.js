@@ -203,6 +203,7 @@ const ExportManager = (() => {
   function buildWordHTML(sport, dates, pageBreak = false) {
     const TH = 'background:#2c3e50;color:white;padding:6px 8px;font-size:11pt;border:1px solid #2c3e50;text-align:center;';
     const TD = 'padding:6px 8px;font-size:10.5pt;border:1px solid #aaa;vertical-align:top;line-height:1.6;';
+    const TDtime = `${TD}text-align:center;`;
 
     // Category color map
     const cats = DataManager.getCategories();
@@ -247,7 +248,7 @@ const ExportManager = (() => {
         const titleHtml = evColor
           ? `<span style="color:${evColor};font-weight:bold;">${ev.title}</span>`
           : ev.title;
-        const timeStr = `${ev.startTime}～${ev.endTime}`;
+        const timeStr = `${ev.startTime}<br>～<br>${ev.endTime}`;
         const parts = [titleHtml];
         if (ev.floor || ev.location) {
           parts.push([ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join(' '));
@@ -259,13 +260,13 @@ const ExportManager = (() => {
           tableRows += `
             <tr>
               <td rowspan="${events.length}" style="${TD}white-space:nowrap;">${dateCellText}</td>
-              <td style="${TD}white-space:nowrap;">${timeStr}</td>
+              <td style="${TDtime}">${timeStr}</td>
               <td style="${TD}">${activity}</td>
             </tr>`;
         } else {
           tableRows += `
             <tr>
-              <td style="${TD}white-space:nowrap;">${timeStr}</td>
+              <td style="${TDtime}">${timeStr}</td>
               <td style="${TD}">${activity}</td>
             </tr>`;
         }
@@ -307,7 +308,7 @@ const ExportManager = (() => {
   <xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument></xml>
   <![endif]-->
   <style>
-    @page { margin: 25.4mm; }
+    @page { margin: 18mm; }
     body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 11pt; margin: 0; padding: 0; }
     table { border-collapse: collapse; width: 100%; }
     thead { display: table-header-group; }
