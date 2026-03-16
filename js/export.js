@@ -365,13 +365,13 @@ const ExportManager = (() => {
       }) || null;
     }
 
-    // hex color → 6-char RRGGBB (uppercase)
+    // hex color → 6-char RRGGBB (uppercase), returns null if not a valid hex
     function toRGB(hex) {
       if (!hex) return null;
-      const h = hex.replace('#', '');
-      return (h.length === 3
-        ? h[0]+h[0]+h[1]+h[1]+h[2]+h[2]
-        : h.substring(0, 6)).toUpperCase();
+      const h = hex.replace(/^#/, '').replace(/[^0-9a-fA-F]/g, '');
+      if (h.length === 3) return (h[0]+h[0]+h[1]+h[1]+h[2]+h[2]).toUpperCase();
+      if (h.length >= 6)  return h.substring(0, 6).toUpperCase();
+      return null;
     }
 
     function fgForBg(hex) {
@@ -523,8 +523,9 @@ const ExportManager = (() => {
           const covEv  = eventCovering(sport.id, date, slotMin);
           if (covEv) {
             const cat    = catMap[covEv.category];
-            const bgHex  = covEv.color || (cat ? cat.color : '#95a5a6');
-            const bgRGB  = toRGB(bgHex) || '95A5A6';
+            // Use same color logic as schedule.js: always cat.color, fallback #e17055
+            const bgHex  = (cat && cat.color) ? cat.color : '#e17055';
+            const bgRGB  = toRGB(bgHex) || 'E17055';
             const fgRGB  = fgForBg(bgHex);
             ws[addr].s = {
               fill: { fgColor: { rgb: bgRGB } },
