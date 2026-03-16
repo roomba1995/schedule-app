@@ -247,14 +247,19 @@ const ExportManager = (() => {
         // Title text colored with category color; rest of content is default
         const titleHtml = evColor
           ? `<span style="color:${evColor};font-weight:bold;">${ev.title}</span>`
-          : ev.title;
+          : `<span style="font-weight:bold;">${ev.title}</span>`;
         const timeStr = `${ev.startTime}<br>～<br>${ev.endTime}`;
         const parts = [titleHtml];
         if (ev.floor || ev.location) {
-          parts.push([ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join(' '));
+          const locText = [ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join('　');
+          parts.push(
+            `<div style="margin-top:4pt;padding:3pt 8pt;background:#eaf4fb;border-left:3pt solid #2980b9;font-size:9.5pt;font-weight:bold;color:#1a5276;">📍 ${locText}</div>`
+          );
         }
-        if (ev.note) parts.push(ev.note);
-        const activity = parts.join('<br>');
+        if (ev.note) {
+          parts.push(`<div style="margin-top:2pt;font-size:9pt;color:#7f8c8d;font-style:italic;">📝 ${ev.note}</div>`);
+        }
+        const activity = parts.join('');
 
         if (i === 0) {
           tableRows += `
