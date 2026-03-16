@@ -255,17 +255,19 @@ const ExportManager = (() => {
         const cat     = catMap[ev.category];
         const evColor = ev.color || (cat ? cat.color : null);
 
-        const titleHtml = evColor
+        const titleSpan = evColor
           ? `<span style="color:${evColor};font-weight:bold;">${ev.title}</span>`
           : `<span style="font-weight:bold;">${ev.title}</span>`;
         const timeStr   = `${ev.startTime}<br>～<br>${ev.endTime}`;
-        const parts     = [titleHtml];
+
+        // Title + location on the same line
+        let titleLine = titleSpan;
         if (ev.floor || ev.location) {
           const locText = [ev.floor ? `${ev.floor}階` : '', ev.location || ''].filter(Boolean).join('　');
-          parts.push(
-            `<div style="margin-top:3pt;padding:2pt 7pt;background:#eaf4fb;border-left:3pt solid #2980b9;font-size:8.5pt;font-weight:bold;color:#1a5276;">📍 ${locText}</div>`
-          );
+          titleLine += `<span style="color:#bbb;padding:0 6pt;">｜</span><span style="font-size:8.5pt;font-weight:bold;color:#2980b9;">📍 ${locText}</span>`;
         }
+
+        const parts = [titleLine];
         if (ev.note) {
           parts.push(`<div style="margin-top:2pt;font-size:8pt;color:#7f8c8d;font-style:italic;">📝 ${ev.note}</div>`);
         }
