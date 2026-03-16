@@ -192,6 +192,14 @@ const ExportManager = (() => {
     downloadFile(fullHtml, `schedule_${hotel.name}_${dr.start}_${dr.end}.doc`, 'application/msword');
   }
 
+  const DAY_TYPE_LABELS = {
+    checkin:     'チェックイン日',
+    practice:    '練習日',
+    competition: '競技日',
+    stay:        '滞在日',
+    checkout:    'チェックアウト日',
+  };
+
   function buildWordHTML(sport, dates, pageBreak = false) {
     const TH = 'background:#2c3e50;color:white;padding:6px 8px;font-size:11pt;border:1px solid #2c3e50;text-align:center;';
     const TD = 'padding:6px 8px;font-size:10.5pt;border:1px solid #aaa;vertical-align:top;line-height:1.6;';
@@ -214,10 +222,16 @@ const ExportManager = (() => {
       const dow = ['日','月','火','水','木','金','土'][new Date(date).getDay()];
       const dateLabel = `${y}/${Number(mo)}/${Number(d)}（${dow}）`;
 
+      const dayType      = DataManager.getDayType(sport.id, date);
+      const dayTypeLabel = dayType ? (DAY_TYPE_LABELS[dayType] || '') : '';
+      const dateCellText = dayTypeLabel
+        ? `${dateLabel}<br><span style="font-size:9pt;color:#555;">${dayTypeLabel}</span>`
+        : dateLabel;
+
       if (events.length === 0) {
         tableRows += `
           <tr>
-            <td style="${TD}white-space:nowrap;">${dateLabel}</td>
+            <td style="${TD}white-space:nowrap;">${dateCellText}</td>
             <td style="${TD}"></td>
             <td style="${TD}"></td>
           </tr>`;
@@ -244,7 +258,7 @@ const ExportManager = (() => {
         if (i === 0) {
           tableRows += `
             <tr>
-              <td rowspan="${events.length}" style="${TD}white-space:nowrap;">${dateLabel}</td>
+              <td rowspan="${events.length}" style="${TD}white-space:nowrap;">${dateCellText}</td>
               <td style="${TD}white-space:nowrap;">${timeStr}</td>
               <td style="${TD}">${activity}</td>
             </tr>`;

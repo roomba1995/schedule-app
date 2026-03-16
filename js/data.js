@@ -583,6 +583,26 @@ const DataManager = (() => {
     return d.getDay(); // 0=Sun,6=Sat
   }
 
+  // ── Day type per sport per date ─────────────────────────────────────────
+  // Types: 'checkin' | 'practice' | 'competition' | 'stay' | 'checkout'
+  function getDayType(sportId, date) {
+    const sport = getSport(sportId);
+    return (sport && sport.dayTypes && sport.dayTypes[date]) || '';
+  }
+
+  function setDayType(sportId, date, type) {
+    const sport = getSport(sportId);
+    if (!sport) return false;
+    if (!sport.dayTypes) sport.dayTypes = {};
+    if (type) {
+      sport.dayTypes[date] = type;
+    } else {
+      delete sport.dayTypes[date];
+    }
+    _saveMaster();
+    return true;
+  }
+
   return {
     init,
     getMaster, getSports, getSport, getHotels, getHotel,
@@ -601,5 +621,6 @@ const DataManager = (() => {
     importMasterXLSX, importSchedulesXLSX, importSchedulesCSV, importFullXLSX,
     clearAllData,
     getDatesInRange, formatDate, formatDateFull, getWeekday,
+    getDayType, setDayType,
   };
 })();
