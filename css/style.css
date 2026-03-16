@@ -258,9 +258,24 @@ select:focus, textarea:focus {
 .form-row .form-group { flex: 1; }
 
 /* ===== Schedule Grid ===== */
+.scroll-mirror-top {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: #f8f9fa;
+}
+.scroll-mirror-spacer {
+  height: 1px;
+}
+
 .schedule-wrapper {
   overflow-x: auto;
   overflow-y: auto;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: white;

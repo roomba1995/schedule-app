@@ -176,10 +176,19 @@ const ScheduleGrid = (() => {
 
     const kbHint = `<div class="kb-hint">選択: クリック ／ 複数選択: Ctrl+クリック ／ コピー: Ctrl+C ／ 削除: Delete ／ 貼り付け: 対象日クリック後 Ctrl+V ／ 選択解除: Esc</div>`;
 
+    // Save scroll position before replacing innerHTML
+    const savedScrollLeft = (() => {
+      const w = _container.querySelector('.schedule-wrapper');
+      return w ? w.scrollLeft : 0;
+    })();
+
+    const contentWidth = TIME_COL_W + _dates.length * DATE_COL_W;
+
     _container.innerHTML = `
       ${toolbar}
       ${legend}
       ${kbHint}
+      <div class="scroll-mirror-top"><div class="scroll-mirror-spacer" style="width:${contentWidth}px;height:1px"></div></div>
       <div class="schedule-wrapper">
         <div class="schedule-container">
           <div class="schedule-header">
@@ -196,6 +205,31 @@ const ScheduleGrid = (() => {
           </div>
         </div>
       </div>`;
+
+    // Restore scroll position
+    const wrapper  = _container.querySelector('.schedule-wrapper');
+    const topMirror = _container.querySelector('.scroll-mirror-top');
+    if (wrapper && savedScrollLeft) {
+      wrapper.scrollLeft = savedScrollLeft;
+      if (topMirror) topMirror.scrollLeft = savedScrollLeft;
+    }
+
+    // Sync top mirror scrollbar ↔ wrapper
+    if (wrapper && topMirror) {
+      let _syncing = false;
+      topMirror.addEventListener('scroll', () => {
+        if (_syncing) return;
+        _syncing = true;
+        wrapper.scrollLeft = topMirror.scrollLeft;
+        _syncing = false;
+      });
+      wrapper.addEventListener('scroll', () => {
+        if (_syncing) return;
+        _syncing = true;
+        topMirror.scrollLeft = wrapper.scrollLeft;
+        _syncing = false;
+      });
+    }
 
     _initDragDrop();
     _attachPostRenderListeners();
